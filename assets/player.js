@@ -15,7 +15,7 @@
       var rows = [];
       d.events.forEach(function (e) { rows.push({ t: e.start, end: e.end, cls: e.speaker, html: "<b>" + (e.speaker === "assistant" ? "assistant" : "user") + "</b> · t" + e.tick + " — " + esc(e.text) }); });
       (d.injections || []).forEach(function (i) {
-        rows.push({ t: i.injected_s, end: i.injected_s + 2.4, cls: "event", html: "event injected: " + esc(i.words) });
+        rows.push({ t: i.injected_s, end: i.injected_s + 2.4, cls: "event", html: "forced error: " + esc(i.words) });
         if (i.released_s != null) rows.push({ t: i.released_s, end: i.released_s + 2.4, cls: "event", html: "released: " + esc(i.reason) + (i.prevented ? " (prevented)" : "") });
       });
       rows.sort(function (a, b) { return a.t - b.t; });
@@ -28,7 +28,7 @@
         li.dataset.t = a.start; li.dataset.end = a.end; li.addEventListener("click", function () { video.currentTime = a.start; video.play(); }); ac.appendChild(li);
       });
       (d.subgoals || []).forEach(function (s) {
-        var li = document.createElement("li"); li.textContent = s.id + " — " + s.words; li.dataset.t = s.true_at_s == null ? "" : s.true_at_s; sg.appendChild(li);
+        var li = document.createElement("li"); li.textContent = s.words; li.dataset.t = s.true_at_s == null ? "" : s.true_at_s; sg.appendChild(li);
         if (s.true_at_s != null) mark(s.true_at_s, "subgoal");
       });
       (d.injections || []).forEach(function (i) { mark(i.injected_s, "injected"); if (i.released_s != null) mark(i.released_s, "released"); });
