@@ -1,0 +1,18 @@
+[
+ {
+  "file": "demo-latte_v1-classic_novice-s37.mp4",
+  "caption": "The novice episode, whole (160 ticks, task completed). What to look at: tick 40–48, where the forced skip of the tamp is caught, and tick 78–90, the over-steamed milk."
+ },
+ {
+  "file": "clip-novice-tamp.mp4",
+  "caption": "Novice, ticks 36–56: the harness drops the tamp and forces a lock-in; the assistant asks for the tamp at tick 40 and flags omit_subgoal at 42, the user accepts (“Oh right, I forgot to tamp them down”), the queue is restored and the mistake is prevented."
+ },
+ {
+  "file": "clip-novice-steam.mp4",
+  "caption": "Novice, ticks 76–92: the milk is forced towards thick foam; the assistant says “Turn the steam dial to off” at tick 86 and the user accepts at 88, after the thick-foam wait had been issued, so the engine's velvety check held but IVG counts it as not prevented."
+ },
+ {
+  "file": "clip-baseline-cup.mp4",
+  "caption": "Baseline, ticks 76–100: the assistant insists for twelve lines that the drip tray is empty and the glass cup stands on the counter; the state map has the glass cup under the group head catching the shot. The transparent cup is nearly invisible at 520×292."
+ }
+]

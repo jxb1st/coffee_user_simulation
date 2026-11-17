@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Closed-loop user simulation on the coffee machine: an IVG-style rollout with a Gemini user and a Gemini assistant</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400..700;1,8..60,400..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="assets/player.css">
+</head>
+<body>
+<main class="page">
+  <nav class="crumb"><a href="https://jxb1st.github.io/interactive_model_panel/">Interactive Model Experiments</a></nav>
+
+  <header class="exp-header">
+    <aside class="note">
+      <span class="status in-progress">In progress</span>
+      <time datetime="2026-11-17">17 November 2026</time>
+      <span>gemini-3.8-flash as the user and as the assistant</span>
+      <span>Data: one task (latte), 3 personas, 3 episodes</span>
+    </aside>
+    <h1>Closed-loop user simulation on the coffee machine: an IVG-style rollout with a Gemini user and a Gemini assistant</h1>
+    <p class="exp-summary">Interactive Visual Gym's closed loop runs end to end on the coffee-machine simulator with real rendered frames: a Gemini user with an IVG persona card works through the latte routine sentence by sentence while a Gemini assistant, polled every second tick with the eight most recent frames, can change the outcome only by talking, two ticks late. Of three episodes (one per IVG persona, two scheduled execution errors each), the novice-persona episode completed the latte in 160 ticks (3:12 of simulated time) and its forced skip of the tamp was prevented: the assistant flagged omit_subgoal two ticks after the injection and the user accepted. The baseline episode ended with the user considering the drink finished (queue empty for 30 ticks) at three of four sub-goals: it had poured 150 mL of milk where the latte asks for 120. In every episode the assistant misread the portafilter in the grinder cradle as locked into the group head, and in the baseline it spent most of its lines on a transparent glass cup it could not see. No judge scores this round.</p>
+  </header>
+
+  <section class="exp-section">
+    <h2 id="motivation">Motivation</h2>
+    <p>The coffee machine is the exemplar device of the human-device simulation; so far it has only been driven by scripted programs. Interactive Visual Gym (IVG) evaluates an assistant that watches a person work and speaks up at the right moment, and it does so with a simulated user: a language model with a persona, a plan it revises, and a harness that forces it into mistakes so the assistant has something to catch. The question here is whether that whole loop closes on our engine with real rendered frames, and what the two agents do when it does.</p>
+    <p>A working loop is the precondition for everything IVG measures (did the assistant catch the error, how often did it interrupt, did the user accept its advice). This round records the episodes in IVG's schema without scoring them; the results below are counts read from the records, not judge scores.</p>
+  </section>
+
+  <section class="exp-section">
+    <h2 id="pipeline">Pipeline</h2>
+    <details class="figure">
+      <summary>Figure 1. The closed loop: user, engine, assistant and the record, tick by tick</summary>
+      <aside class="note">Drawn from userloop/rollout.py: Episode.tick_once, _engine_step, user_turn, _poll_assistant; userloop/constants.py.</aside>
+      <figure class="fig wide">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 689" width="680" height="689"><title>Overview</title><desc></desc><defs><marker id="arrow-fig1-overview" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M2 1L8 5L2 9" fill="none" stroke="#5f5b55" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs><rect width="680" height="689" fill="#FFFFFF"/><rect x="40" y="20" width="600" height="76" rx="8" fill="#f3f2ee" stroke="#8b867e" stroke-width="0.75"/><text x="340.0" y="45" text-anchor="middle" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="14" font-weight="600" fill="#1f1d1b">Case and persona</text><text x="340.0" y="64" text-anchor="middle" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="12" font-weight="400" fill="#5f5b55">cases.yaml latte_v1 · personas.yaml, IVG's three</text><text x="340.0" y="82" text-anchor="middle" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="11" font-weight="400" font-style="italic" fill="#5f5b55">e.g. coffee_latte, 26 sentences, 2 scheduled errors · baseline: medium skill, medium trust</text><path d="M340 99 L340 137" fill="none" stroke="#5f5b55" stroke-width="1.25" marker-end="url(#arrow-fig1-overview)"/><text x="352" y="113" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="12" font-weight="400" fill="#5f5b55">the queue starts as the routine</text><text x="352" y="128" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="11" font-weight="400" font-style="italic" fill="#5f5b55">e.g. pour 150 mL of milk from the milk carton …</text><rect x="40" y="140" width="600" height="372" rx="12" fill="none" stroke="#8b867e" stroke-width="0.75" stroke-dasharray="4 4"/><text x="60" y="167" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="14" font-weight="600" fill="#1f1d1b">One tick = 1.2 s of simulation, in IVG's order</text><text x="620" y="166" text-anchor="end" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="12" font-weight="400" fill="#5f5b55">rollout.py: Episode.tick_once</text><rect x="60" y="180" width="260" height="76" rx="8" fill="#f4f0e6" stroke="#b7a57a" stroke-width="0.75"/><text x="190.0" y="205" text-anchor="middle" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="14" font-weight="600" fill="#5e5030">Scheduler and takeover</text><text x="190.0" y="224" text-anchor="middle" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="12" font-weight="400" fill="#7a6a45">fires by plan position, holds queue</text><text x="190.0" y="242" text-anchor="middle" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="11" font-weight="400" font-style="italic" fill="#7a6a45">e.g. omit_subgoal at tick 40: skip tamping</text><rect x="360" y="180" width="260" height="76" rx="8" fill="#f4f0e6" stroke="#b7a57a" stroke-width="0.75"/><text x="490.0" y="205" text-anchor="middle" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="14" font-weight="600" fill="#5e5030">Simulated user</text><text x="490.0" y="224" text-anchor="middle" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="12" font-weight="400" fill="#7a6a45">a turn when idle or spoken to</text><text x="490.0" y="242" text-anchor="middle" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="11" font-weight="400" font-style="italic" fill="#7a6a45">e.g. gemini-3.8-flash: utterance, move, op</text><path d="M190 259 L190 297" fill="none" stroke="#5f5b55" stroke-width="1.25" marker-end="url(#arrow-fig1-overview)"/><text x="202" y="273" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="12" font-weight="400" fill="#5f5b55">forced block</text><text x="202" y="288" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="11" font-weight="400" font-style="italic" fill="#5f5b55">e.g. wait 8 seconds, lock the portafilter</text><path d="M490 259 L490 297" fill="none" stroke="#5f5b55" stroke-width="1.25" marker-end="url(#arrow-fig1-overview)"/><text x="502" y="273" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="12" font-weight="400" fill="#5f5b55">one sentence per tick</text><text x="502" y="288" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="11" font-weight="400" font-style="italic" fill="#5f5b55">e.g. plan_update: keep</text><rect x="60" y="300" width="580" height="76" rx="8" fill="#f3f2ee" stroke="#8b867e" stroke-width="0.75"/><text x="350.0" y="325" text-anchor="middle" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="14" font-weight="600" fill="#1f1d1b">CoffeeEngine</text><text x="350.0" y="344" text-anchor="middle" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="12" font-weight="400" fill="#5f5b55">Session.step → ticks · prefix bake · render_frames per tick</text><text x="350.0" y="362" text-anchor="middle" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="11" font-weight="400" font-style="italic" fill="#5f5b55">e.g. pour 150 mL … = 8 ticks; frames/tick_0008.jpg (external | first-person, 1042×318)</text><path d="M350 379 L350 417" fill="none" stroke="#5f5b55" stroke-width="1.25" marker-end="url(#arrow-fig1-overview)"/><text x="362" y="393" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="12" font-weight="400" fill="#5f5b55">8 most recent frames, every 2 ticks</text><text x="362" y="408" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="11" font-weight="400" font-style="italic" fill="#5f5b55">e.g. ticks 7–14 at the call of tick 14</text><rect x="60" y="420" width="580" height="76" rx="8" fill="#ece7f4" stroke="#4b2e83" stroke-width="0.75"/><text x="350.0" y="445" text-anchor="middle" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="14" font-weight="600" fill="#3a2366">Assistant</text><text x="350.0" y="464" text-anchor="middle" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="12" font-weight="400" fill="#4b2e83">JSON reply {user_progress, text, flag}; the user hears it 2 ticks later</text><text x="350.0" y="482" text-anchor="middle" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="11" font-weight="400" font-style="italic" fill="#4b2e83">e.g. t14 → t16: “Take the portafilter out of the group head …”, flag omit_subgoal</text><path d="M644 460 L658 460 L658 218 L624 218" fill="none" stroke="#5f5b55" stroke-width="1.25" marker-end="url(#arrow-fig1-overview)"/><path d="M340 515 L340 553" fill="none" stroke="#5f5b55" stroke-width="1.25" marker-end="url(#arrow-fig1-overview)"/><text x="352" y="529" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="12" font-weight="400" fill="#5f5b55">every tick</text><text x="352" y="544" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="11" font-weight="400" font-style="italic" fill="#5f5b55">e.g. states.jsonl row, checkpoint.json</text><rect x="40" y="556" width="600" height="76" rx="8" fill="#f3f2ee" stroke="#8b867e" stroke-width="0.75"/><text x="340.0" y="581" text-anchor="middle" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="14" font-weight="600" fill="#1f1d1b">Record</text><text x="340.0" y="600" text-anchor="middle" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="12" font-weight="400" fill="#5f5b55">record.json · states.jsonl · frames · final bake of the whole sequence</text><text x="340.0" y="618" text-anchor="middle" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="11" font-weight="400" font-style="italic" fill="#5f5b55">e.g. outcome, actions, injections[] — the baseline episode: 107 ticks, 16 bakes, 1 event</text><rect x="40" y="654" width="12" height="12" rx="2" fill="#ece7f4" stroke="#4b2e83" stroke-width="0.75"/><text x="58" y="664" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="12" font-weight="400" fill="#5f5b55">Assistant under test: gemini-3.8-flash, sees frames only</text><rect x="440.40000000000003" y="654" width="12" height="12" rx="2" fill="#f4f0e6" stroke="#b7a57a" stroke-width="0.75"/><text x="458.40000000000003" y="664" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="12" font-weight="400" fill="#5f5b55">Simulated user and harness: IVG CookSim texts and rules, vendored</text></svg>
+      </figure>
+      <p>Read it top to bottom. A case fixes the task and the hidden event schedule, a persona fixes how the user behaves, and the user's queue starts as the drink's routine (26 primitive sentences). Inside one 1.2 s tick the loop runs in IVG's order: the scheduler may take the queue over, a pending assistant reply is delivered, the user takes a turn when it is idle or was spoken to, the assistant is polled, and the engine issues or continues one sentence.</p>
+      <p>The running example is the baseline episode: the user pours the milk (8 ticks); the assistant is polled at ticks 0, 2, 4, … with the 8 most recent frames and first speaks at tick 14 (“Take the portafilter out of the group head …”, flag omit_subgoal); the user hears it at tick 16 and answers. At tick 40 the scheduled omit_subgoal event takes the queue over. Only the assistant is the system under test: it sees frames and the dialogue, never the state; the user sees the state and the dialogue, never the frames.</p>
+      <p>The record is written every tick (states.jsonl, checkpoint.json) and finished with record.json and a bake of the whole sequence; the next figures open each box.</p>
+    </details>
+    <details class="figure">
+      <summary>Figure 2. How a case and a persona become the user's system prompt</summary>
+      <aside class="note">Drawn from config/cases.yaml; config/personas.yaml; userloop/cases.py: load_case, render_card; userloop/user_agent.py: build_user_system; userloop/prompts/user_system.txt.</aside>
+      <figure class="fig wide">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 773" width="680" height="773"><title>Case and persona</title><desc></desc><defs><marker id="arrow-fig2-case-persona" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M2 1L8 5L2 9" fill="none" stroke="#5f5b55" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs><rect width="680" height="773" fill="#FFFFFF"/><rect x="40" y="20" width="600" height="196" rx="12" fill="none" stroke="#8b867e" stroke-width="0.75" stroke-dasharray="4 4"/><text x="60" y="47" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="14" font-weight="600" fill="#1f1d1b">The case</text><text x="620" y="46" text-anchor="end" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="12" font-weight="400" fill="#5f5b55">config/cases.yaml · userloop/cases.py: load_case</text><rect x="60" y="60" width="560" height="36" rx="6" fill="#f3f2ee" stroke="#8b867e" stroke-width="0.75"/><text x="76" y="83" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="14" font-weight="600" fill="#1f1d1b">program</text><text x="180" y="82" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="11" font-weight="400" font-style="italic" fill="#5f5b55">coffee_latte: 26 primitive sentences once the procedures expand</text><rect x="60" y="100" width="560" height="36" rx="6" fill="#f3f2ee" stroke="#8b867e" stroke-width="0.75"/><text x="76" y="123" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="14" font-weight="600" fill="#1f1d1b">tref</text><text x="180" y="122" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="11" font-weight="400" font-style="italic" fill="#5f5b55">tref_ticks 153 · allowance_ticks 20 · cap_ticks = 2 × (153 + 20) = 346</text><rect x="60" y="140" width="560" height="36" rx="6" fill="#f3f2ee" stroke="#8b867e" stroke-width="0.75"/><text x="76" y="163" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="14" font-weight="600" fill="#1f1d1b">event 1</text><text x="180" y="162" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="11" font-weight="400" font-style="italic" fill="#5f5b55">omit_subgoal: after “distribute the grounds”, drop “tamp the grounds firmly”</text><rect x="60" y="176" width="560" height="36" rx="6" fill="#f3f2ee" stroke="#8b867e" stroke-width="0.75"/><text x="76" y="199" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="14" font-weight="600" fill="#1f1d1b">event 2</text><text x="180" y="198" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="11" font-weight="400" font-style="italic" fill="#5f5b55">mis_prep: after “turn the steam dial to steam”, steam on to thick foam</text><rect x="40" y="240" width="600" height="156" rx="12" fill="none" stroke="#8b867e" stroke-width="0.75" stroke-dasharray="4 4"/><text x="60" y="267" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="14" font-weight="600" fill="#1f1d1b">The persona (IVG's benchmark trio)</text><text x="620" y="266" text-anchor="end" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="12" font-weight="400" fill="#5f5b55">config/personas.yaml · cases.py: render_card</text><rect x="60" y="280" width="560" height="36" rx="6" fill="#f3f2ee" stroke="#8b867e" stroke-width="0.75"/><text x="76" y="303" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="14" font-weight="600" fill="#1f1d1b">private</text><text x="180" y="302" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="11" font-weight="400" font-style="italic" fill="#5f5b55">skill medium · trust medium — both hidden from the assistant</text><rect x="60" y="320" width="560" height="36" rx="6" fill="#f3f2ee" stroke="#8b867e" stroke-width="0.75"/><text x="76" y="343" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="14" font-weight="600" fill="#1f1d1b">public</text><text x="180" y="342" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="11" font-weight="400" font-style="italic" fill="#5f5b55">speed 2 “soso” · alerting 2 “medium” · interruption 2 “medium”</text><rect x="60" y="356" width="560" height="36" rx="6" fill="#f3f2ee" stroke="#8b867e" stroke-width="0.75"/><text x="76" y="379" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="14" font-weight="600" fill="#1f1d1b">card</text><text x="180" y="378" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="11" font-weight="400" font-style="italic" fill="#5f5b55">e.g. the title YOUR SKILL AT THE COFFEE BAR, then the medium statement</text><path d="M340 400 L340 438" fill="none" stroke="#5f5b55" stroke-width="1.25" marker-end="url(#arrow-fig2-case-persona)"/><text x="352" y="414" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="12" font-weight="400" fill="#5f5b55">filled once per episode</text><text x="352" y="429" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="11" font-weight="400" font-style="italic" fill="#5f5b55">e.g. build_user_system(case, persona, rules, forms, steps)</text><rect x="40" y="440" width="600" height="276" rx="12" fill="none" stroke="#8b867e" stroke-width="0.75" stroke-dasharray="4 4"/><text x="60" y="467" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="14" font-weight="600" fill="#1f1d1b">The user's system prompt, IVG's section order</text><text x="620" y="466" text-anchor="end" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="12" font-weight="400" fill="#5f5b55">user_agent.py: build_user_system · prompts/user_system.txt</text><rect x="60" y="480" width="560" height="36" rx="6" fill="#f4f0e6" stroke="#b7a57a" stroke-width="0.75"/><text x="76" y="503" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="14" font-weight="600" fill="#5e5030">persona</text><text x="180" y="502" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="11" font-weight="400" font-style="italic" fill="#7a6a45">YOUR PERSONA: the card rendered from the five axes</text><rect x="60" y="520" width="560" height="36" rx="6" fill="#f4f0e6" stroke="#b7a57a" stroke-width="0.75"/><text x="76" y="543" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="14" font-weight="600" fill="#5e5030">order</text><text x="180" y="542" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="11" font-weight="400" font-style="italic" fill="#7a6a45">Make a latte in the glass cup: velvety milk poured on a double shot</text><rect x="60" y="560" width="560" height="36" rx="6" fill="#f4f0e6" stroke="#b7a57a" stroke-width="0.75"/><text x="76" y="583" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="14" font-weight="600" fill="#5e5030">rules, body</text><text x="180" y="582" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="11" font-weight="400" font-style="italic" fill="#7a6a45">the machine's rules (Session.space) · the accepted sentence forms</text><rect x="60" y="600" width="560" height="36" rx="6" fill="#f4f0e6" stroke="#b7a57a" stroke-width="0.75"/><text x="76" y="623" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="14" font-weight="600" fill="#5e5030">abilities</text><text x="180" y="622" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="11" font-weight="400" font-style="italic" fill="#7a6a45">abilities_high (medium skill); abilities_low, abilities_creative otherwise</text><rect x="60" y="640" width="560" height="36" rx="6" fill="#f4f0e6" stroke="#b7a57a" stroke-width="0.75"/><text x="76" y="663" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="14" font-weight="600" fill="#5e5030">reply</text><text x="180" y="662" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="11" font-weight="400" font-style="italic" fill="#7a6a45">utterance · assistant_error_call · move · close_conversation · plan_update</text><rect x="60" y="676" width="560" height="36" rx="6" fill="#f4f0e6" stroke="#b7a57a" stroke-width="0.75"/><text x="76" y="699" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="14" font-weight="600" fill="#5e5030">live slots</text><text x="180" y="698" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="11" font-weight="400" font-style="italic" fill="#7a6a45">state map · hands · running · queue · feedback · conversation (next figure)</text><rect x="40" y="738" width="12" height="12" rx="2" fill="#f4f0e6" stroke="#b7a57a" stroke-width="0.75"/><text x="58" y="748" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="12" font-weight="400" fill="#5f5b55">Simulated user and harness: IVG CookSim texts and rules, vendored</text></svg>
+      </figure>
+      <p>The case (top) is the program coffee_latte with its reference time (153 ticks, so a cap of 346) and two scheduled errors, each named by the command after which it may fire, the command it replaces and its forced block. The persona (middle) is IVG's baseline: skill and trust are private, the three questionnaire answers are public and the assistant is told only those.</p>
+      <p>The bottom group is the user's system prompt in IVG's section order (gold: CookSim's texts with the coffee bar's nouns): the card, the order, the machine's rules and sentence forms taken from the engine's own action space, the abilities block chosen by skill, the reply contract, and the live slots that the next figure fills every turn.</p>
+    </details>
+    <details class="figure">
+      <summary>Figure 3. A user turn: live state in, a reply and a queue edit out</summary>
+      <aside class="note">Drawn from userloop/user_agent.py: build_user_turn, UserAgent.turn, apply_plan_update; userloop/engine.py: CoffeeEngine.state_text_completed; userloop/gemini.py: GeminiText.</aside>
+      <figure class="fig wide">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 563" width="680" height="563"><title>A user turn</title><desc></desc><defs><marker id="arrow-fig3-user-turn" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M2 1L8 5L2 9" fill="none" stroke="#5f5b55" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs><rect width="680" height="563" fill="#FFFFFF"/><rect x="40" y="20" width="600" height="236" rx="12" fill="none" stroke="#8b867e" stroke-width="0.75" stroke-dasharray="4 4"/><text x="60" y="47" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="14" font-weight="600" fill="#1f1d1b">The live state this turn</text><text x="620" y="46" text-anchor="end" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="12" font-weight="400" fill="#5f5b55">user_agent.py: build_user_turn · engine.py: state_text_completed</text><rect x="60" y="60" width="560" height="36" rx="6" fill="#f3f2ee" stroke="#8b867e" stroke-width="0.75"/><text x="76" y="83" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="14" font-weight="600" fill="#1f1d1b">state map</text><text x="210" y="82" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="11" font-weight="400" font-style="italic" fill="#5f5b55">e.g. t 1.0 s · steam wand closed · drip tray closed · … · dose 18 g</text><rect x="60" y="100" width="560" height="36" rx="6" fill="#f3f2ee" stroke="#8b867e" stroke-width="0.75"/><text x="76" y="123" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="14" font-weight="600" fill="#1f1d1b">body</text><text x="210" y="122" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="11" font-weight="400" font-style="italic" fill="#5f5b55">IN YOUR HANDS: nothing · CURRENT ACTION: grind — IN PROGRESS</text><rect x="60" y="140" width="560" height="36" rx="6" fill="#f3f2ee" stroke="#8b867e" stroke-width="0.75"/><text x="76" y="163" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="14" font-weight="600" fill="#1f1d1b">queue</text><text x="210" y="162" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="11" font-weight="400" font-style="italic" fill="#5f5b55">QUEUED AFTER: 1. wait until the grinder stops 2. move the portafilter …</text><rect x="60" y="180" width="560" height="36" rx="6" fill="#f3f2ee" stroke="#8b867e" stroke-width="0.75"/><text x="76" y="203" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="14" font-weight="600" fill="#1f1d1b">feedback</text><text x="210" y="202" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="11" font-weight="400" font-style="italic" fill="#5f5b55">you DID pour 150 mL of milk … · you TRIED … — REJECTED: &lt;why&gt;</text><rect x="60" y="216" width="560" height="36" rx="6" fill="#f3f2ee" stroke="#8b867e" stroke-width="0.75"/><text x="76" y="239" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="14" font-weight="600" fill="#1f1d1b">conversation</text><text x="210" y="238" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="11" font-weight="400" font-style="italic" fill="#5f5b55">e.g. assistant: Take the portafilter out of the group head. You need …</text><path d="M340 260 L340 298" fill="none" stroke="#5f5b55" stroke-width="1.25" marker-end="url(#arrow-fig3-user-turn)"/><text x="352" y="274" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="12" font-weight="400" fill="#5f5b55">UserAgent.turn: gemini-3.8-flash, T 0.2</text><text x="352" y="289" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="11" font-weight="400" font-style="italic" fill="#5f5b55">e.g. user message = card + “Stay in character …”</text><rect x="40" y="300" width="600" height="76" rx="8" fill="#f4f0e6" stroke="#b7a57a" stroke-width="0.75"/><text x="340.0" y="325" text-anchor="middle" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="14" font-weight="600" fill="#5e5030">Reply JSON</text><text x="340.0" y="344" text-anchor="middle" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="12" font-weight="400" fill="#7a6a45">utterance · assistant_error_call · move · close_conversation · plan_update</text><text x="340.0" y="362" text-anchor="middle" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="11" font-weight="400" font-style="italic" fill="#7a6a45">e.g. t16 “I'm already grinding right now.” · question_correctness · call wrong · keep</text><path d="M340 379 L340 427" fill="none" stroke="#5f5b55" stroke-width="1.25" marker-end="url(#arrow-fig3-user-turn)"/><path d="M340 410 L130 410 L130 427" fill="none" stroke="#5f5b55" stroke-width="1.25" marker-end="url(#arrow-fig3-user-turn)"/><path d="M340 410 L550 410 L550 427" fill="none" stroke="#5f5b55" stroke-width="1.25" marker-end="url(#arrow-fig3-user-turn)"/><text x="352" y="393" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="12" font-weight="400" fill="#5f5b55">apply_plan_update: IVG's apply_fix</text><rect x="40" y="430" width="180" height="76" rx="8" fill="#f3f2ee" stroke="#8b867e" stroke-width="0.75"/><text x="130.0" y="455" text-anchor="middle" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="14" font-weight="600" fill="#1f1d1b">keep / drop</text><text x="130.0" y="474" text-anchor="middle" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="12" font-weight="400" fill="#5f5b55">queue unchanged</text><text x="130.0" y="492" text-anchor="middle" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="11" font-weight="400" font-style="italic" fill="#5f5b55">e.g. this turn: keep</text><rect x="250" y="430" width="180" height="76" rx="8" fill="#f3f2ee" stroke="#8b867e" stroke-width="0.75"/><text x="340.0" y="455" text-anchor="middle" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="14" font-weight="600" fill="#1f1d1b">append / replace</text><text x="340.0" y="474" text-anchor="middle" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="12" font-weight="400" fill="#5f5b55">after the running one</text><text x="340.0" y="492" text-anchor="middle" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="11" font-weight="400" font-style="italic" fill="#5f5b55">e.g. [tamp …, lock …]</text><rect x="460" y="430" width="180" height="76" rx="8" fill="#f3f2ee" stroke="#8b867e" stroke-width="0.75"/><text x="550.0" y="455" text-anchor="middle" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="14" font-weight="600" fill="#1f1d1b">op_overridden</text><text x="550.0" y="474" text-anchor="middle" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="12" font-weight="400" fill="#5f5b55">during a takeover</text><text x="550.0" y="492" text-anchor="middle" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="11" font-weight="400" font-style="italic" fill="#5f5b55">e.g. hands held by harness</text><rect x="40" y="528" width="12" height="12" rx="2" fill="#f4f0e6" stroke="#b7a57a" stroke-width="0.75"/><text x="58" y="538" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="12" font-weight="400" fill="#5f5b55">Simulated user and harness: IVG CookSim texts and rules, vendored</text></svg>
+      </figure>
+      <p>Every turn the live slots are filled: the state map after the last completed command, what is in the hands, the running command and the remaining queue, the feedback of the last commands and the conversation. The persona card and “Stay in character …” form the user message (temperature 0.2, 1400 tokens, thinking budget 512). The model answers with IVG's contract; at tick 16 the baseline user disputes the assistant's claim (“I'm already grinding right now.”, move question_correctness, assistant_error_call wrong) and keeps its plan.</p>
+      <p>apply_plan_update is IVG's apply_fix: keep or drop leaves the queue, append and replace edit what follows the running command, and during a takeover every edit is overridden because the harness holds the hands. The next figure shows what the engine does with one sentence of that queue.</p>
+    </details>
+    <details class="figure">
+      <summary>Figure 4. The engine: one sentence becomes ticks, a prefix bake and per-tick frames</summary>
+      <aside class="note">Drawn from userloop/engine.py: CoffeeEngine.issue, bake_prefix, ensure_frames; userloop/frames.py: composite; human_device_simulation: session.py (step, sequence_so_far, idle), run.py (run_main), render.py (render_frames).</aside>
+      <figure class="fig wide">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 596" width="680" height="596"><title>The engine: a sentence becomes ticks and frames</title><desc></desc><defs><marker id="arrow-fig4-engine" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M2 1L8 5L2 9" fill="none" stroke="#5f5b55" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs><rect width="680" height="596" fill="#FFFFFF"/><rect x="40" y="20" width="600" height="76" rx="8" fill="#f3f2ee" stroke="#8b867e" stroke-width="0.75"/><text x="340.0" y="45" text-anchor="middle" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="14" font-weight="600" fill="#1f1d1b">Session.step(sentence)</text><text x="340.0" y="64" text-anchor="middle" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="12" font-weight="400" fill="#5f5b55">the device logic plans the whole sentence at once</text><text x="340.0" y="82" text-anchor="middle" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="11" font-weight="400" font-style="italic" fill="#5f5b55">e.g. pour 150 mL of milk from the milk carton into the jug → 1.0–9.8 s, steps look, pour</text><path d="M340 99 L340 137" fill="none" stroke="#5f5b55" stroke-width="1.25" marker-end="url(#arrow-fig4-engine)"/><text x="352" y="113" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="12" font-weight="400" fill="#5f5b55">⌈8.8 s / 1.2 s⌉ = 8 ticks, padded 0.8 s</text><text x="352" y="128" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="11" font-weight="400" font-style="italic" fill="#5f5b55">e.g. engine.py: CoffeeEngine.issue</text><rect x="40" y="140" width="600" height="76" rx="8" fill="#f3f2ee" stroke="#8b867e" stroke-width="0.75"/><text x="340.0" y="165" text-anchor="middle" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="14" font-weight="600" fill="#1f1d1b">Prefix bake</text><text x="340.0" y="184" text-anchor="middle" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="12" font-weight="400" fill="#5f5b55">sequence_so_far + 12-tick idle tail → run_main: compile, bake_targets, physics, bake_run</text><text x="340.0" y="202" text-anchor="middle" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="11" font-weight="400" font-style="italic" fill="#5f5b55">e.g. 16 bakes in the baseline episode's 107 ticks, once per accepted sentence or used-up tail</text><path d="M340 219 L340 257" fill="none" stroke="#5f5b55" stroke-width="1.25" marker-end="url(#arrow-fig4-engine)"/><text x="352" y="233" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="12" font-weight="400" fill="#5f5b55">only the new ticks, frame = 36 × tick</text><text x="352" y="248" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="11" font-weight="400" font-style="italic" fill="#5f5b55">e.g. render_frames(view, 0, 288, step 36)</text><rect x="40" y="260" width="290" height="76" rx="8" fill="#f3f2ee" stroke="#8b867e" stroke-width="0.75"/><text x="185.0" y="285" text-anchor="middle" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="14" font-weight="600" fill="#1f1d1b">external camera</text><text x="185.0" y="304" text-anchor="middle" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="12" font-weight="400" fill="#5f5b55">loop profile 520×292, 16 spp, 30 fps</text><text x="185.0" y="322" text-anchor="middle" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="11" font-weight="400" font-style="italic" fill="#5f5b55">e.g. frames/raw/external/frame_000288.png</text><rect x="350" y="260" width="290" height="76" rx="8" fill="#f3f2ee" stroke="#8b867e" stroke-width="0.75"/><text x="495.0" y="285" text-anchor="middle" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="14" font-weight="600" fill="#1f1d1b">first-person camera</text><text x="495.0" y="304" text-anchor="middle" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="12" font-weight="400" fill="#5f5b55">the same frames from the ego view</text><text x="495.0" y="322" text-anchor="middle" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="11" font-weight="400" font-style="italic" fill="#5f5b55">e.g. frames/raw/ego/frame_000288.png</text><path d="M185 339 L185 377" fill="none" stroke="#5f5b55" stroke-width="1.25" marker-end="url(#arrow-fig4-engine)"/><path d="M495 339 L495 377" fill="none" stroke="#5f5b55" stroke-width="1.25" marker-end="url(#arrow-fig4-engine)"/><rect x="40" y="380" width="600" height="76" rx="8" fill="#f3f2ee" stroke="#8b867e" stroke-width="0.75"/><text x="340.0" y="405" text-anchor="middle" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="14" font-weight="600" fill="#1f1d1b">frames.composite</text><text x="340.0" y="424" text-anchor="middle" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="12" font-weight="400" fill="#5f5b55">external | 2 px | first-person, 26 px caption bar, JPEG 85 → 1042×318</text><text x="340.0" y="442" text-anchor="middle" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="11" font-weight="400" font-style="italic" fill="#5f5b55">e.g. frames/tick_0008.jpg; a 12-frame ring, the assistant gets the last 8</text><path d="M340 459 L340 497" fill="none" stroke="#5f5b55" stroke-width="1.25" marker-end="url(#arrow-fig4-engine)"/><text x="352" y="473" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="12" font-weight="400" fill="#5f5b55">sim time stays 1.0 s + 1.2 s × tick</text><text x="352" y="488" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="11" font-weight="400" font-style="italic" fill="#5f5b55">e.g. states.jsonl: tick 8, sim_t 10.6</text><rect x="40" y="500" width="600" height="76" rx="8" fill="#f3f2ee" stroke="#8b867e" stroke-width="0.75"/><text x="340.0" y="525" text-anchor="middle" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="14" font-weight="600" fill="#1f1d1b">Tick bookkeeping</text><text x="340.0" y="544" text-anchor="middle" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="12" font-weight="400" fill="#5f5b55">actions row · states.jsonl · status.txt · checkpoint.json</text><text x="340.0" y="562" text-anchor="middle" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="11" font-weight="400" font-style="italic" fill="#5f5b55">e.g. {cmd: pour …, t_issue 0, t_done 8, ticks 8, pad_s 0.8}</text></svg>
+      </figure>
+      <p>The device simulation plans a whole sentence when it is issued: the pour takes 8.8 s of motion, so it occupies 8 ticks and is padded to the tick boundary, which keeps simulation time at 1.0 s + 1.2 s × tick for the whole episode. After every accepted sentence the prefix of the episode (the steps so far plus a 12-tick idle tail) is baked with the ordinary pipeline — compile, Blender bake, MuJoCo for the pressed keys — and only the new ticks are rendered from it, one frame per tick for the external and the first-person camera at the loop profile.</p>
+      <p>The two renders become the composite the assistant sees (external | first-person with a caption bar, 1042×318); every tick also writes its state row, the status file and a checkpoint, so an episode resumes from the last tick. The bake is the cost of the loop: the baseline episode re-baked 16 times in 107 ticks.</p>
+    </details>
+    <details class="figure">
+      <summary>Figure 5. An assistant call: eight frames and the dialogue in, a reply two ticks later</summary>
+      <aside class="note">Drawn from userloop/assistant_agent.py: build_assistant_system, build_assistant_turn, AssistantAgent.query; userloop/rollout.py: _poll_assistant; userloop/constants.py: WINDOW, POLL, LATENCY_TICKS.</aside>
+      <figure class="fig wide">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 553" width="680" height="553"><title>An assistant call</title><desc></desc><defs><marker id="arrow-fig5-assistant-call" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M2 1L8 5L2 9" fill="none" stroke="#5f5b55" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs><rect width="680" height="553" fill="#FFFFFF"/><rect x="40" y="20" width="600" height="236" rx="12" fill="none" stroke="#8b867e" stroke-width="0.75" stroke-dasharray="4 4"/><text x="60" y="47" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="14" font-weight="600" fill="#1f1d1b">What the assistant receives (and nothing else)</text><text x="620" y="46" text-anchor="end" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="12" font-weight="400" fill="#5f5b55">assistant_agent.py: build_assistant_turn · constants.py</text><rect x="60" y="60" width="560" height="36" rx="6" fill="#f3f2ee" stroke="#8b867e" stroke-width="0.75"/><text x="76" y="83" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="14" font-weight="600" fill="#1f1d1b">frames</text><text x="210" y="82" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="11" font-weight="400" font-style="italic" fill="#5f5b55">the 8 most recent composites, one per tick, oldest first</text><rect x="60" y="100" width="560" height="36" rx="6" fill="#f3f2ee" stroke="#8b867e" stroke-width="0.75"/><text x="76" y="123" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="14" font-weight="600" fill="#1f1d1b">timestamp</text><text x="210" y="122" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="11" font-weight="400" font-style="italic" fill="#5f5b55">CURRENT TIMESTAMP: t=14</text><rect x="60" y="140" width="560" height="36" rx="6" fill="#f3f2ee" stroke="#8b867e" stroke-width="0.75"/><text x="76" y="163" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="14" font-weight="600" fill="#1f1d1b">memory</text><text x="210" y="162" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="11" font-weight="400" font-style="italic" fill="#5f5b55">previous user_progress: subgoals_completed, current_subgoal, …</text><rect x="60" y="180" width="560" height="36" rx="6" fill="#f3f2ee" stroke="#8b867e" stroke-width="0.75"/><text x="76" y="203" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="14" font-weight="600" fill="#1f1d1b">history</text><text x="210" y="202" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="11" font-weight="400" font-style="italic" fill="#5f5b55">COMMUNICATION HISTORY, the last 2400 characters · THE USER JUST SAID</text><rect x="60" y="216" width="560" height="36" rx="6" fill="#f3f2ee" stroke="#8b867e" stroke-width="0.75"/><text x="76" y="239" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="14" font-weight="600" fill="#1f1d1b">system prompt</text><text x="210" y="238" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="11" font-weight="400" font-style="italic" fill="#5f5b55">assistant_system.txt: IVG rules, public persona answers, 8 flags</text><path d="M340 260 L340 298" fill="none" stroke="#5f5b55" stroke-width="1.25" marker-end="url(#arrow-fig5-assistant-call)"/><text x="352" y="274" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="12" font-weight="400" fill="#5f5b55">AssistantAgent.query: gemini-3.8-flash, JSON</text><text x="352" y="289" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="11" font-weight="400" font-style="italic" fill="#5f5b55">e.g. 4.5 s, 4099 prompt tokens, thinking low</text><rect x="40" y="300" width="600" height="76" rx="8" fill="#ece7f4" stroke="#4b2e83" stroke-width="0.75"/><text x="340.0" y="325" text-anchor="middle" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="14" font-weight="600" fill="#3a2366">Reply</text><text x="340.0" y="344" text-anchor="middle" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="12" font-weight="400" fill="#4b2e83">{user_progress, goal_change, text, flag} · 6000 tokens, thinking low</text><text x="340.0" y="362" text-anchor="middle" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="11" font-weight="400" font-style="italic" fill="#4b2e83">e.g. t14: “Take the portafilter out of the group head. You need to grind …”, flag omit_subgoal</text><path d="M340 379 L340 417" fill="none" stroke="#5f5b55" stroke-width="1.25" marker-end="url(#arrow-fig5-assistant-call)"/><text x="352" y="393" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="12" font-weight="400" fill="#5f5b55">polled every 2 ticks; LATENCY_TICKS = 2</text><text x="352" y="408" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="11" font-weight="400" font-style="italic" fill="#5f5b55">e.g. issued at t14, heard at t16</text><rect x="40" y="420" width="600" height="76" rx="8" fill="#f3f2ee" stroke="#8b867e" stroke-width="0.75"/><text x="340.0" y="445" text-anchor="middle" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="14" font-weight="600" fill="#1f1d1b">Delivery</text><text x="340.0" y="464" text-anchor="middle" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="12" font-weight="400" fill="#5f5b55">the text enters the public history and triggers a user turn the same tick</text><text x="340.0" y="482" text-anchor="middle" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="11" font-weight="400" font-style="italic" fill="#5f5b55">e.g. t16 user: “I'm already grinding right now.” (question_correctness, call wrong)</text><rect x="40" y="518" width="12" height="12" rx="2" fill="#ece7f4" stroke="#4b2e83" stroke-width="0.75"/><text x="58" y="528" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="12" font-weight="400" fill="#5f5b55">Assistant under test: gemini-3.8-flash, sees frames only</text></svg>
+      </figure>
+      <p>The assistant is polled every second tick with the eight most recent composites, the timestamp, its own previous JSON as its only memory, the last 2400 characters of the public history and the user's latest line; its system prompt is IVG's assistant prompt with the coffee machine's rulebook and the persona's public answers. Nothing about the state reaches it.</p>
+      <p>The reply is JSON: its progress tracking, an optional goal change, the text and an optional flag from the eight error names. The reply issued at tick 14 arrives at tick 16 (LATENCY_TICKS = 2, IVG's main setting), enters the public history and triggers the user turn of the same tick. The next figure shows the one event the harness forces in this episode.</p>
+    </details>
+    <details class="figure">
+      <summary>Figure 6. A scheduled error: the takeover, the user's voice and the two releases</summary>
+      <aside class="note">Drawn from userloop/events.py: Scheduler.ready, Takeover; userloop/rollout.py: _activate, _release; userloop/prompts/system_task_belief.txt, mistake_lines.yaml.</aside>
+      <figure class="fig wide">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 680 533" width="680" height="533"><title>A scheduled error: takeover and release</title><desc></desc><defs><marker id="arrow-fig6-takeover" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M2 1L8 5L2 9" fill="none" stroke="#5f5b55" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs><rect width="680" height="533" fill="#FFFFFF"/><rect x="40" y="20" width="600" height="76" rx="8" fill="#f4f0e6" stroke="#b7a57a" stroke-width="0.75"/><text x="340.0" y="45" text-anchor="middle" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="14" font-weight="600" fill="#5e5030">Scheduler.ready</text><text x="340.0" y="64" text-anchor="middle" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="12" font-weight="400" fill="#7a6a45">anchor done · dropped step next in the queue · guard holds · 10 ticks after a release</text><text x="340.0" y="82" text-anchor="middle" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="11" font-weight="400" font-style="italic" fill="#7a6a45">e.g. tick 40: “distribute the grounds” done, “tamp the grounds firmly” next, grounds_g ≥ 1</text><path d="M340 99 L340 137" fill="none" stroke="#5f5b55" stroke-width="1.25" marker-end="url(#arrow-fig6-takeover)"/><text x="352" y="113" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="12" font-weight="400" fill="#5f5b55">Takeover: queue replaced, voice kept</text><text x="352" y="128" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="11" font-weight="400" font-style="italic" fill="#5f5b55">e.g. events.py: Takeover · rollout.py: _activate</text><rect x="40" y="140" width="600" height="76" rx="8" fill="#f4f0e6" stroke="#b7a57a" stroke-width="0.75"/><text x="340.0" y="165" text-anchor="middle" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="14" font-weight="600" fill="#5e5030">Forced block and private task</text><text x="340.0" y="184" text-anchor="middle" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="12" font-weight="400" fill="#7a6a45">queue := [wait 8 seconds, lock the portafilter into the group head]</text><text x="340.0" y="202" text-anchor="middle" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="11" font-weight="400" font-style="italic" fill="#7a6a45">e.g. [SYSTEM TASK] from system_task_belief.txt + mistake_lines.yaml: omit_subgoal</text><path d="M190 219 L190 277" fill="none" stroke="#5f5b55" stroke-width="1.25" marker-end="url(#arrow-fig6-takeover)"/><text x="202" y="233" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="12" font-weight="400" fill="#5f5b55">the user calls the assistant right</text><text x="202" y="248" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="11" font-weight="400" font-style="italic" fill="#5f5b55">e.g. assistant_error_call correct → accept</text><path d="M490 219 L490 277" fill="none" stroke="#5f5b55" stroke-width="1.25" marker-end="url(#arrow-fig6-takeover)"/><text x="502" y="233" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="12" font-weight="400" fill="#5f5b55">or the block runs out</text><text x="502" y="248" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="11" font-weight="400" font-style="italic" fill="#5f5b55">e.g. lock issued at t48</text><rect x="40" y="280" width="290" height="76" rx="8" fill="#f4f0e6" stroke="#b7a57a" stroke-width="0.75"/><text x="185.0" y="305" text-anchor="middle" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="14" font-weight="600" fill="#5e5030">accepted → restore</text><text x="185.0" y="324" text-anchor="middle" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="12" font-weight="400" fill="#7a6a45">saved queue back; prevented if pre-lock</text><text x="185.0" y="342" text-anchor="middle" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="11" font-weight="400" font-style="italic" fill="#7a6a45">e.g. tamp …, lock … come back</text><rect x="350" y="280" width="290" height="76" rx="8" fill="#f4f0e6" stroke="#b7a57a" stroke-width="0.75"/><text x="495.0" y="305" text-anchor="middle" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="14" font-weight="600" fill="#5e5030">block_executed</text><text x="495.0" y="324" text-anchor="middle" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="12" font-weight="400" fill="#7a6a45">queue dropped, the user re-plans</text><text x="495.0" y="342" text-anchor="middle" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="11" font-weight="400" font-style="italic" fill="#7a6a45">e.g. released at t52, prevented false</text><path d="M185 359 L185 397" fill="none" stroke="#5f5b55" stroke-width="1.25" marker-end="url(#arrow-fig6-takeover)"/><path d="M495 359 L495 397" fill="none" stroke="#5f5b55" stroke-width="1.25" marker-end="url(#arrow-fig6-takeover)"/><rect x="40" y="400" width="600" height="76" rx="8" fill="#f3f2ee" stroke="#8b867e" stroke-width="0.75"/><text x="340.0" y="425" text-anchor="middle" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="14" font-weight="600" fill="#1f1d1b">injections[] in record.json</text><text x="340.0" y="444" text-anchor="middle" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="12" font-weight="400" fill="#5f5b55">err · injected · released · released_reason · committed_at · prevented · fired_by</text><text x="340.0" y="462" text-anchor="middle" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="11" font-weight="400" font-style="italic" fill="#5f5b55">e.g. omit_subgoal, 40 → 52, block_executed, committed_at 48, prevented false, fired_by head</text><rect x="40" y="498" width="12" height="12" rx="2" fill="#f4f0e6" stroke="#b7a57a" stroke-width="0.75"/><text x="58" y="508" text-anchor="start" font-family="'Source Serif 4', Georgia, 'Times New Roman', serif" font-size="12" font-weight="400" fill="#5f5b55">Simulated user and harness: IVG CookSim texts and rules, vendored</text></svg>
+      </figure>
+      <p>An event fires on plan position: at tick 40 the anchor command has completed, the command to drop is next in the queue and the state guard holds. The harness saves the user's queue and replaces it with the forced block — a hesitation, then locking the untamped portafilter in — and gives the user a private SYSTEM TASK that tells it the mistake in play and how to judge the assistant with assistant_error_call.</p>
+      <p>Two ways out, as in IVG: the user calls the assistant right and accepts (the saved queue comes back, and the mistake counts as prevented if the lock had not been issued), or the block runs to its end and the queue is dropped so the user re-plans from the state map. In the baseline episode the block executed (committed at tick 48, released at tick 52, not prevented); everything is recorded in injections[] of the record.</p>
+    </details>
+  </section>
+
+  <section class="exp-section">
+    <h2 id="settings">Settings</h2>
+    <aside class="note">Deviations from IVG: 16:9 panes of 520×292 instead of 520×370; one model (gemini-3.8-flash) for both seats where IVG's user runs gemini-3.7-flash; a sentence spans several ticks instead of one action per tick; the user prompt has no engine-oracle calls (IVG's resolve_subgoal / expand_action); no judges or scores this round.</aside>
+    <aside class="note">An episode that ends by the idle rule (queue empty for 30 ticks) is IVG's natural stop for a user who believes it is done; the tick cap and the wall budget were not reached.</aside>
+    <dl class="facts">
+      <dt>Task</dt><dd>coffee_latte on the human_device_simulation coffee machine: 26 primitive sentences, four engine sub-goals (150 mL of milk in the jug; milk velvety, not thick foam; steam wand clean; 120 mL of milk on 60 mL of espresso with a rosetta); reference time 153 ticks, cap 346</dd>
+      <dt>Personas</dt><dd>IVG's benchmark trio from its statement bank with the coffee bar's nouns — baseline (skill medium, trust medium), classic_novice (low skill, high trust, step-by-step guidance), classic_expert (high skill, low trust, interrupt only when necessary); skill and trust stay private, the three questionnaire answers are public</dd>
+      <dt>Scheduled errors</dt><dd>omit_subgoal — after “distribute the grounds” the user is made to skip tamping and lock the portafilter in; mis_prep — after “turn the steam dial to steam” the milk is steamed to thick foam; each fires once at the earliest position where its anchor is done, its dropped step is next and the state guard holds, with IVG's takeover, arming (assistant_error_call = correct) and release (accept, or the block runs out) rules</dd>
+      <dt>Engine</dt><dd>a sentence is planned whole and runs ⌈motion time / 1.2 s⌉ ticks; after every accepted sentence the episode's prefix plus a 12-tick idle tail is re-baked (Blender, MuJoCo for the keys) and the new ticks are rendered with Cycles on the loop profile (16 samples)</dd>
+      <dt>Tick and cadence</dt><dd>one tick = 1.2 s of simulation; the assistant is polled every 2 ticks with the 8 most recent frames, one call in flight; its reply is heard 2 ticks after the call (fixed latency)</dd>
+      <dt>Frames</dt><dd>two Cycles renders per tick at 520×292 (external camera, first-person camera), side by side with a 26 px caption bar: 1042×318 JPEG; a ring of 12 frames</dd>
+      <dt>Assistant</dt><dd>the system under test: sees only the frames, the timestamp, its previous reply, the public dialogue and the machine's rulebook; never the state</dd>
+      <dt>Assistant decoding</dt><dd>gemini-3.8-flash, JSON output, thinking level low, 6000 output tokens, provider-default temperature</dd>
+      <dt>User</dt><dd>sees the state map, its hands, its queue and the dialogue; never the frames; replies in IVG's JSON (utterance, assistant_error_call, move, close_conversation, plan_update)</dd>
+      <dt>User decoding</dt><dd>gemini-3.8-flash, temperature 0.2, 1400 output tokens, thinking budget 512</dd>
+      <dt>Stops</dt><dd>an episode ends when the engine's sub-goals are all true (won), when the user's queue has been empty for 30 ticks (the user considers the drink finished), at the cap of 2 × (reference ticks + 20) ticks, after 40 user turns without a command, or after 2 h of wall time in one job</dd>
+      <dt>Hardware</dt><dd>one MIG instance (1/7 of an H200) per episode in two job segments (the first segment stopped at a bake while the bake script was being sped up, the second resumed from the checkpoint); about 50 s of wall time per tick, most of it the prefix bake (2–3 min per accepted sentence); 27–29 bakes per episode</dd>
+      <dt>Code</dt><dd>experiments/coffee_user_simulation (userloop package) on top of experiments/human_device_simulation; IVG's texts copied from the public Interactive-Visual-Gym repository (CookSim) with the coffee bar's nouns</dd>
+    </dl>
+  </section>
+
+  <section class="exp-section">
+    <h2 id="prompts">Prompts</h2>
+    <aside class="note">Verbatim. IVG CookSim's prompts with the coffee bar's nouns; the placeholders in braces are the per-turn slots.</aside>
+    <details class="expand">
+      <summary>Prompts <span class="n">(13)</span></summary>
+      <details class="prompt system"><summary>Assistant system prompt <span class="prompt-note">filled for persona baseline</span></summary><pre>You are an ASSISTANT watching a single HUMAN barista work at an espresso machine in a
+3D simulator, through two cameras. YOUR JOB is twofold: (1) DETECT the barista's real mistakes the moment you see
+them, and (2) guide the repair so the ORDER is COMPLETED successfully. You never talk to the engine — your ONLY output channels are what you SAY
+to the barista and your own memory.
+
+== WHAT YOU RECEIVE EACH TURN ==
+(1) the last 8 ticks, oldest -&gt; newest, one image per tick. Each image is a SIDE-BY-SIDE pair of the SAME instant: LEFT is an external camera looking at the person and the machine, RIGHT is the person's first-person view. Read the barista's actions from these pixels.
+Judge WHERE things are from the external (LEFT) half — the first-person half shows what the barista is looking at, not where anything sits on the counter. (2) the CURRENT TIMESTAMP. (3) YOUR PREVIOUS OUTPUT — your own
+memory of the barista's progress; it is your ONLY memory of what you OBSERVED, so keep it
+accurate. (4) the COMMUNICATION HISTORY — every sentence either of you has said so far, with
+timestamps (the public record of the episode). (5) any sentence the barista JUST said.
+
+== THE TASK AND ITS RULES ==
+Make a latte in the glass cup: velvety milk poured on a double shot
+
+Below is the RULEBOOK THE BARISTA WAS GIVEN before the episode, quoted exactly as they read it —
+it addresses them as "you". It is the only thing they were told about this machine, so you may
+rely on them knowing it, and you should use its wording when you talk to them.
+
+1. Feet are fixed: every key, part, place and object listed is within arm's reach; nothing else is.
+2. Each hand holds one thing at most; a move ends with the hand empty, so nothing is carried from one command to the next.
+3. A press counts only when the key travels 1.2 mm; the device, not the request, decides what the display shows.
+4. A knob or dial is re-gripped every 75°; a setting outside the control's range is refused.
+5. POWER switches the machine on or off; with it on, FILTER SIZE switches the filter basket between single and double wall, and PROGRAM then 1 CUP or 2 CUP runs the key (2 mL per second) until the same key is pressed again, which stores that volume (20–90 mL).
+6. The grinder runs when the portafilter or the dosing cup in the grinder cradle is pushed against the switch (`grind`): the dose set on the grind amount dial (8–22 g, 18 g at rest) at 2 g per second by itself, or the amount asked for while the basket is held in; it needs the hopper seated, its lid on and beans in it. A basket merely set in the cradle does not grind.
+7. 1 CUP runs 30 mL and 2 CUP 60 mL whatever the basket holds: espresso from tamped grounds locked in the group head (the flow depends on the grind size, 1 finest … 16 coarsest: 60 mL in 25–35 s is in range, faster is too fast, slower is choked; the first 5 s are pre-infusion), a weak shot from untamped grounds, water through a spent puck or the open group head into what stands under it, else the drip tray. A key held 1 s or longer runs for the hold. Pressing the same key again stops the run.
+8. A 1 CUP hold of 10 s with the cleaning disc locked in starts a backflush cycle (3 s with a tablet: the cleaning cycle); a 2 CUP hold of 5 s with 100 mL of descaler in the tank descales.
+9. The steam dial has three positions: hot water, off, steam. Steam foams the milk in the jug under the wand from 4 s on (microfoam at 5 s, velvety at 8 s, thick foam at 12 s; at least 50 mL); with nothing under the wand it purges into the drip tray. Hot water runs from the hot-water outlet into whatever stands under it at 15 mL per second.
+10. The scale shows the weight on it in grams; TARE zeroes it. The spent puck drops when the portafilter on the knock box is knocked.
+11. Pouring moves what fits: the amount is capped by what the source holds and by the room in the destination; beans go into the hopper only with its lid off; tamping needs grounds in the basket.
+12. A command that cannot be grounded, or whose precondition fails, is refused with a reason and changes nothing.
+
+== THE HUMAN YOU ARE WORKING WITH (public profile — shared with you) ==
+== USER PREFERENCES (this user filled a pre-task questionnaire; these are their answers) ==
+1. "How much do you care about solving the task fast?"
+     safe first / soso / as soon as possible, with a lot of parallelism
+   -&gt; they chose: soso
+2. "How do you want the assistant to alert potential mistakes?"
+     flag only when confident / medium / spot all possible mistakes aggressively
+   -&gt; they chose: medium
+3. "What interruption style do you want?"
+     step by step / medium / don't interrupt unless necessary
+   -&gt; they chose: medium
+You know nothing else about this user — their skill, and how far they will trust you, must be inferred from how they behave.
+
+== YOU TRACK THE USER'S PROGRESS YOURSELF ==
+You maintain "user_progress": subgoals_completed / current_subgoal / subgoals_future.
+Subgoal names: milk, foamed, wand_clean, latte.
+ON YOUR FIRST TURN (no previous output): from the order, write the plan you EXPECT the barista
+to follow — there is NO unique correct plan: put every subgoal the barista must eventually do
+into subgoals_future.remaining WITHOUT imposing an order the drink does not require, and
+capture the true requirements as "constraints". ON EVERY LATER TURN: update user_progress from
+the frames first (move a subgoal to subgoals_completed ONLY when you SAW it complete; keep
+several current_subgoal hypotheses while the frames are ambiguous), then reply.
+
+== WHAT CAN GO WRONG ==
+The barista usually follows its plan correctly (then saying nothing is right). But it can make
+a real mistake — the kinds you know:
+  - repeat_step: re-does a step it already completed
+  - forget_next_step: stalls doing NOTHING for a long time, as if it lost its plan
+  - omit_subgoal: a required step silently never happens (the grounds never get tamped)
+  - wrong_order: does the right steps in the WRONG order (starts the shot before the portafilter is locked in)
+  - mis_prep: prepares a component the WRONG way (steams the milk to thick foam when the drink needs velvety milk)
+  - add_foreign: adds something to the drink that does NOT belong in this order
+  - serve_raw: uses a component before it is ready (pours milk that was never steamed)
+  - leave_unattended: leaves steam or hot water running with nobody tending it
+It may also ask you a question (answer briefly and correctly — the answer is visible in the
+stream or in what you watched), or ANNOUNCE a legal plan change out loud. An announced change
+is the barista's own act and takes effect without you — don't treat it as a mistake; UPDATE YOUR
+OWN subgoals_future to match, AND record it in your reply's "goal_change" field.
+
+== WHAT THE USER'S BODY CAN DO ==
+Its body accepts ONLY these sentences (&lt;…&gt; is a slot):
+  look at &lt;thing&gt;
+  read &lt;ref&gt;
+  check &lt;ref&gt;
+  what does &lt;ref&gt; read
+  wait until &lt;cond&gt; for at most &lt;dur&gt;
+  wait until &lt;cond&gt;
+  wait &lt;dur&gt;
+  wait for &lt;dur&gt;
+  press &lt;key&gt;
+  press &lt;key&gt; &lt;N&gt; times
+  hold &lt;key&gt; for &lt;seconds&gt; s
+  turn &lt;knob or dial&gt; to &lt;setting&gt;
+  turn &lt;knob or dial&gt; by &lt;angle&gt; clockwise | counter-clockwise
+  open &lt;part&gt;
+  open &lt;part&gt; to &lt;fraction&gt;
+  close &lt;part&gt;
+  move &lt;object&gt; &lt;place&gt;
+  move &lt;object&gt; back where it was
+  pour &lt;pourqty&gt; of &lt;substance&gt; from &lt;src&gt; into &lt;dst&gt;( &lt;manner&gt;)?
+  pour &lt;pourqty&gt; from &lt;src&gt; into &lt;dst&gt;( &lt;manner&gt;)?
+  tip &lt;pourqty&gt; of &lt;substance&gt; from &lt;src&gt; into &lt;dst&gt;
+  tip &lt;pourqty&gt; from &lt;src&gt; into &lt;dst&gt;
+  pour the &lt;substance&gt; from &lt;src&gt; into &lt;dst&gt;( &lt;manner&gt;)?
+  add &lt;quantity&gt; of &lt;substance&gt; into &lt;container&gt;
+  grind
+  grind &lt;qty&gt;
+  run the grinder
+  run the grinder for &lt;qty&gt;
+  distribute the grounds( with the WDT tool)?
+  stir the grounds( with the WDT tool)?
+  break up the grounds
+  tamp the grounds &lt;pressure&gt;
+  press the grounds down &lt;pressure&gt;
+  tamp &lt;pressure&gt;
+  knock out the puck
+  knock the puck out
+  bang the portafilter on the knock box
+  knock the portafilter on the knock box
+  swirl the jug
+  give the jug a swirl
+  swirl the milk
+  tap the jug on the counter
+  knock the jug on the counter
+  tap the jug
+  wipe down &lt;ref&gt;
+  wipe &lt;ref&gt;( with the cloth)?
+  brush the grinder throat( with the grinder brush)?
+  brush out the grinder
+  turn the machine &lt;on_off&gt;
+  switch the machine &lt;on_off&gt;
+  turn the coffee machine &lt;on_off&gt;
+  select the &lt;filter&gt; filter
+  choose the &lt;filter&gt; filter
+  tare the scale
+  zero the scale
+  stop the shot
+  stop the pour
+  set the dose to &lt;qty&gt;
+  set the grind amount to &lt;qty&gt;
+  set the grind size to &lt;size&gt;
+  set the grind to &lt;size&gt;
+  lock the portafilter into the group head
+  lock the portafilter in the group head
+  lock the portafilter in
+  remove the portafilter( from the group head)?
+  unlock the portafilter
+  take the portafilter out of the group head
+  dose the portafilter from the dosing cup
+  tip the dosing cup into the portafilter
+  empty out &lt;ref&gt; into the sink
+  empty &lt;ref&gt; into the sink
+  swing out the steam wand
+  swing the steam wand out
+  pour the milk for latte art
+  pour the milk for a rosetta
+There is no step/turn/walk action — the body works out hands, grips and leaning itself, so always
+name a THING and an amount, never a motion.
+
+== SAYING WHICH ONE ==
+Talk like a person at a coffee bar. If only one of a thing exists, just name it: "the jug",
+"the portafilter", "the steam wand". Keys by their printed label: "the 2 CUP key", "the TARE
+key". If several exist, say which one by WHERE IT IS or WHAT IT HOLDS: "the cup under the group
+head", "the jug with the milk in it", "the knob on the left". Say places as places on the
+counter, never from the barista's body — "on your left" goes stale the moment they move.
+
+== YOUR REPLY — strict JSON every turn ==
+{"user_progress": {"subgoals_completed": [{"subgoal": "milk", "completed_at": 18,
+        "evidence": "milk seen poured into the jug"}],
+    "current_subgoal": {"hypotheses": ["foamed"], "since": 40},
+    "subgoals_future": {"remaining": ["wand_clean", "latte"],
+        "constraints": ["the shot before the milk goes in", "wipe the wand after steaming"]}},
+  "goal_change": null,
+  "text": "&lt;whatever you want to say to the barista — empty string to stay silent&gt;",
+  "flag": null}
+
+Only "text" reaches the barista; there are no message categories — say whatever helps in your
+own words: point out a mistake (name it precisely), answer a question, warn about a hazard,
+walk the barista through a recovery. Silence is right most of the time.
+
+== ERROR DETECTION ==
+You are ALSO the coffee bar's error detector. When you tell the barista it has made one
+of the mistakes in WHAT CAN GO WRONG, set
+  "flag": {"error": "&lt;EXACTLY one of: add_foreign, forget_next_step, leave_unattended, mis_prep, omit_subgoal, repeat_step, serve_raw, wrong_order&gt;"}
+in that same reply, so the system can grade it. Exact-name match is graded; any
+other string counts against you. On every other turn "flag" stays null.</pre></details>
+      <details class="prompt user"><summary>Assistant message, every call <span class="prompt-note">template; the 8 frames are attached before it</span></summary><pre>CURRENT TIMESTAMP: t={now}
+
+== YOUR PREVIOUS OUTPUT (your memory — update user_progress, then reply) ==
+{prev_json}
+
+== COMMUNICATION HISTORY (public — everything said so far) ==
+{history}{just_said_block}
+
+Below are your last {n_frames} frames (one per tick, oldest first). Output your JSON for NOW.</pre></details>
+      <details class="prompt response"><summary>Assistant reply <span class="prompt-note">tick 14, the first line it spoke</span></summary><pre>{
+ "user_progress": {
+  "subgoals_completed": [
+   {
+    "subgoal": "milk",
+    "completed_at": 6,
+    "evidence": "poured milk from the carton into the jug"
+   }
+  ],
+  "current_subgoal": {
+   "hypotheses": [
+    "latte"
+   ],
+   "since": 11
+  },
+  "subgoals_future": {
+   "remaining": [
+    "foamed",
+    "wand_clean",
+    "latte"
+   ],
+   "constraints": [
+    "double shot into glass cup",
+    "velvety milk foamed for 8 s",
+    "wipe wand after steaming"
+   ]
+  }
+ },
+ "goal_change": null,
+ "text": "Take the portafilter out of the group head. You need to grind beans into the basket and tamp them before pulling the shot.",
+ "flag": {
+  "error": "omit_subgoal"
+ }
+}</pre></details>
+      <details class="prompt system"><summary>User system prompt <span class="prompt-note">filled for persona baseline; the live slots in braces are filled every turn</span></summary><pre>You are role-playing: pretend to be a real HUMAN with the persona below,
+to test an AI assistant's interaction ability. Stay in character the whole episode —
+speak, hesitate, push back and change your mind the way THIS person would, never like a
+scripted robot (vary your wording; a real person never repeats the same sentence twice).
+The human you are playing is a BARISTA working at an espresso machine in a simulator. What follows, in order:
+who you are; the ORDER; how the COFFEE BAR works; what your BODY can do and how to name things;
+what you can work out for yourself; then the live state of this turn — what you see, what
+your hands are doing, what you have done, what the world just answered, the conversation —
+and finally how to reply. You are NOT given a fact-check on your own work; how much you trust
+the assistant and when you change course is up to your persona.
+
+== YOUR PERSONA (this drives how you handle the assistant's suggestions) ==
+AXIS: YOUR SKILL AT THE COFFEE BAR — level 2 of 3 (medium).
+Not in the questionnaire: nobody asked you this — it is simply who you are, and the assistant does not know it.
+Interpretation of this level (how a person at this level tends to think, talk and decide — a disposition, not a rule): You are comfortable with ordinary coffee-bar tasks and can usually translate a drink-making goal into practical steps. You understand the main routines, timings, and tools well enough to talk through your reasoning without needing everything spelled out. You may still miss less obvious interactions or future consequences when several things are happening at once.
+
+AXIS: HOW FAR YOU TRUST THE AI ASSISTANT — level 2 of 3 (medium).
+Not in the questionnaire: nobody asked you this — it is simply who you are, and the assistant does not know it.
+Interpretation of this level (how a person at this level tends to think, talk and decide — a disposition, not a rule): You treat the assistant as potentially helpful but not automatically right. If its account conflicts with yours, you tend to look for a sensible reason before revising your view. Clear, relevant evidence usually settles the matter for you, while weak or confused explanations leave you unsure.
+
+AXIS: SPEED — level 2 of 3 (soso).
+Questionnaire item you answered before the task: “How much do you care about solving the task fast?”
+  options: 1 = safe first / 2 = soso / 3 = as soon as possible, with a lot of parallelism
+  your answer: 2 = “soso” (the assistant is shown this answer)
+Interpretation of this level (how a person at this level tends to think, talk and decide — a disposition, not a rule): You prefer a balanced pace. You like steady progress and are comfortable with some efficiency, but not at the cost of making the work feel rushed or brittle. In conversation, you weigh speed against confidence in the current step.
+
+AXIS: ALERTING — level 2 of 3 (medium).
+Questionnaire item you answered before the task: “How do you want the assistant to alert potential mistakes?”
+  options: 1 = flag only when confident / 2 = medium / 3 = spot all possible mistakes aggressively
+  your answer: 2 = “medium” (the assistant is shown this answer)
+Interpretation of this level (how a person at this level tends to think, talk and decide — a disposition, not a rule): You asked for a moderate alerting style. You are open to warnings and possibilities, but you expect them to be proportionate to the evidence. Your reaction depends on how serious, timely, and well-supported the concern sounds.
+
+AXIS: INTERRUPTION — level 2 of 3 (medium).
+Questionnaire item you answered before the task: “What interruption style do you want?”
+  options: 1 = step by step / 2 = medium / 3 = don't interrupt unless necessary
+  your answer: 2 = “medium” (the assistant is shown this answer)
+Interpretation of this level (how a person at this level tends to think, talk and decide — a disposition, not a rule): You prefer a middle-ground interruption style. You can absorb comments while working, but you also appreciate some respect for the rhythm of the task. Your engagement varies with timing, urgency, and how relevant the message is to what is happening.
+
+You are a person, not a voice recorder: acknowledge advice in your own casual words and never repeat the assistant's sentences or step lists back verbatim.
+
+== THE ORDER (what you have been asked to make) ==
+Make a latte in the glass cup: velvety milk poured on a double shot
+
+== THE COFFEE BAR AND ITS RULES (how this machine works — the same rules the assistant knows) ==
+1. Feet are fixed: every key, part, place and object listed is within arm's reach; nothing else is.
+2. Each hand holds one thing at most; a move ends with the hand empty, so nothing is carried from one command to the next.
+3. A press counts only when the key travels 1.2 mm; the device, not the request, decides what the display shows.
+4. A knob or dial is re-gripped every 75°; a setting outside the control's range is refused.
+5. POWER switches the machine on or off; with it on, FILTER SIZE switches the filter basket between single and double wall, and PROGRAM then 1 CUP or 2 CUP runs the key (2 mL per second) until the same key is pressed again, which stores that volume (20–90 mL).
+6. The grinder runs when the portafilter or the dosing cup in the grinder cradle is pushed against the switch (`grind`): the dose set on the grind amount dial (8–22 g, 18 g at rest) at 2 g per second by itself, or the amount asked for while the basket is held in; it needs the hopper seated, its lid on and beans in it. A basket merely set in the cradle does not grind.
+7. 1 CUP runs 30 mL and 2 CUP 60 mL whatever the basket holds: espresso from tamped grounds locked in the group head (the flow depends on the grind size, 1 finest … 16 coarsest: 60 mL in 25–35 s is in range, faster is too fast, slower is choked; the first 5 s are pre-infusion), a weak shot from untamped grounds, water through a spent puck or the open group head into what stands under it, else the drip tray. A key held 1 s or longer runs for the hold. Pressing the same key again stops the run.
+8. A 1 CUP hold of 10 s with the cleaning disc locked in starts a backflush cycle (3 s with a tablet: the cleaning cycle); a 2 CUP hold of 5 s with 100 mL of descaler in the tank descales.
+9. The steam dial has three positions: hot water, off, steam. Steam foams the milk in the jug under the wand from 4 s on (microfoam at 5 s, velvety at 8 s, thick foam at 12 s; at least 50 mL); with nothing under the wand it purges into the drip tray. Hot water runs from the hot-water outlet into whatever stands under it at 15 mL per second.
+10. The scale shows the weight on it in grams; TARE zeroes it. The spent puck drops when the portafilter on the knock box is knocked.
+11. Pouring moves what fits: the amount is capped by what the source holds and by the room in the destination; beans go into the hopper only with its lid off; tamping needs grounds in the basket.
+12. A command that cannot be grounded, or whose precondition fails, is refused with a reason and changes nothing.
+
+== WHAT YOUR BODY CAN DO — THE ONLY ACTIONS THE WORLD ACCEPTS ==
+You can only DO these exact sentences (anything else your body cannot perform). Each line is a
+form; &lt;…&gt; is a slot you fill with a thing or an amount from the state map:
+  look at &lt;thing&gt;
+  read &lt;ref&gt;
+  check &lt;ref&gt;
+  what does &lt;ref&gt; read
+  wait until &lt;cond&gt; for at most &lt;dur&gt;
+  wait until &lt;cond&gt;
+  wait &lt;dur&gt;
+  wait for &lt;dur&gt;
+  press &lt;key&gt;
+  press &lt;key&gt; &lt;N&gt; times
+  hold &lt;key&gt; for &lt;seconds&gt; s
+  turn &lt;knob or dial&gt; to &lt;setting&gt;
+  turn &lt;knob or dial&gt; by &lt;angle&gt; clockwise | counter-clockwise
+  open &lt;part&gt;
+  open &lt;part&gt; to &lt;fraction&gt;
+  close &lt;part&gt;
+  move &lt;object&gt; &lt;place&gt;
+  move &lt;object&gt; back where it was
+  pour &lt;pourqty&gt; of &lt;substance&gt; from &lt;src&gt; into &lt;dst&gt;( &lt;manner&gt;)?
+  pour &lt;pourqty&gt; from &lt;src&gt; into &lt;dst&gt;( &lt;manner&gt;)?
+  tip &lt;pourqty&gt; of &lt;substance&gt; from &lt;src&gt; into &lt;dst&gt;
+  tip &lt;pourqty&gt; from &lt;src&gt; into &lt;dst&gt;
+  pour the &lt;substance&gt; from &lt;src&gt; into &lt;dst&gt;( &lt;manner&gt;)?
+  add &lt;quantity&gt; of &lt;substance&gt; into &lt;container&gt;
+  grind
+  grind &lt;qty&gt;
+  run the grinder
+  run the grinder for &lt;qty&gt;
+  distribute the grounds( with the WDT tool)?
+  stir the grounds( with the WDT tool)?
+  break up the grounds
+  tamp the grounds &lt;pressure&gt;
+  press the grounds down &lt;pressure&gt;
+  tamp &lt;pressure&gt;
+  knock out the puck
+  knock the puck out
+  bang the portafilter on the knock box
+  knock the portafilter on the knock box
+  swirl the jug
+  give the jug a swirl
+  swirl the milk
+  tap the jug on the counter
+  knock the jug on the counter
+  tap the jug
+  wipe down &lt;ref&gt;
+  wipe &lt;ref&gt;( with the cloth)?
+  brush the grinder throat( with the grinder brush)?
+  brush out the grinder
+  turn the machine &lt;on_off&gt;
+  switch the machine &lt;on_off&gt;
+  turn the coffee machine &lt;on_off&gt;
+  select the &lt;filter&gt; filter
+  choose the &lt;filter&gt; filter
+  tare the scale
+  zero the scale
+  stop the shot
+  stop the pour
+  set the dose to &lt;qty&gt;
+  set the grind amount to &lt;qty&gt;
+  set the grind size to &lt;size&gt;
+  set the grind to &lt;size&gt;
+  lock the portafilter into the group head
+  lock the portafilter in the group head
+  lock the portafilter in
+  remove the portafilter( from the group head)?
+  unlock the portafilter
+  take the portafilter out of the group head
+  dose the portafilter from the dosing cup
+  tip the dosing cup into the portafilter
+  empty out &lt;ref&gt; into the sink
+  empty &lt;ref&gt; into the sink
+  swing out the steam wand
+  swing the steam wand out
+  pour the milk for latte art
+  pour the milk for a rosetta
+Your hands, your grip, how far you lean and how you move are not actions — the body works them
+out. You have no other verbs; words like "make the coffee" or "froth it a bit" are NOT actions
+your body understands — you must translate the assistant's meaning into the exact sentences above.
+
+== HOW TO SAY WHICH ONE — how the engine reads your commands ==
+Your commands go to the ENGINE, and the engine is exact. Name a thing the way the forms and the
+state map name it: by its printed label ("the 2 CUP key", "the TARE key"), by its kind when there
+is only one ("the jug", "the portafilter", "the steam dial"), or, when several exist, by where it
+is or what it holds ("the left knob", "the cup under the group head", "the jug in my hand").
+What the engine tells you when it cannot obey:
+  * "ambiguous_reference" with a list of candidates -&gt; more than one thing fits; re-issue naming
+    one of them.
+  * "not_found" -&gt; nothing of that kind is here; the message says what the scene does have.
+  * "precondition_failed" -&gt; the machine's rules forbid it right now; the message says why.
+None of this is a conversation problem — it is between you and your own body. Read the map,
+pick the thing, name it exactly.
+
+== STEP NAMES (how steps are called when you and the assistant talk about them) ==
+  milk = 150 mL of milk in the jug
+  foamed = milk steamed until velvety (80 to 100 mL of foam: not thick foam)
+  wand_clean = steam wand clean again
+  latte = 120 mL of milk on 60 mL of espresso, a rosetta
+Order matters: a step named later waits for the ones it depends on.
+
+== WHAT YOU CAN WORK OUT FOR YOURSELF ==
+You are a SKILLED barista: you can work steps out for yourself. You know the routine of this
+drink and you can read the state map; when the assistant names a step only vaguely ("re-do the
+puck", "sort the milk out"), you turn it into the exact sentences yourself from the forms list
+and the state of the machine. There is NO oracle to ask — the ASSISTANT decides what to do, you
+decide how your body does it.
+
+** One principle: queue what you know, ask about what you would otherwise guess. ** Before writing a
+sentence into `actions`, ask yourself: is its exact form already determined — the thing, the
+amount, the order? If yes, write it directly. If a part would be a guess — WHICH key, HOW much,
+what the step unfolds into — ask the assistant for exactly that part first.
+
+== WHAT YOU SEE — THE STATE MAP (your own eyes; current and complete) ==
+{state_map}
+
+== A MISTAKE IS THE ASSISTANT'S FAILURE, NOT YOURS TO HIDE ==
+If you have done something wrong, the assistant is being tested on whether it notices — not you
+on whether you hide it. Never volunteer a confession, never fix a mistake nobody mentioned, and
+never deny what your own hands and the state map show once it is pointed out.
+
+== WHAT YOUR BODY IS DOING RIGHT NOW (only you know this) ==
+IN YOUR HANDS right now: {in_hand} — this is what you PHYSICALLY feel in your own hands; it is
+always true, whatever you believed you picked up or put down.
+{my_plan}
+{body_extra}
+
+== WHAT YOU HAVE DONE SO FAR (your own memory of this episode; the assistant cannot see it) ==
+{past_block}
+
+== ACTION FEEDBACK (what the world just did with your sentences) ==
+{action_feedback}
+
+== CONVERSATION SO FAR (you only ever hear the assistant's SENTENCES) ==
+{conversation}
+
+== HOW TO REPLY ==
+You output ONE json object:
+
+ACT — output your action json:
+{"utterance": "&lt;one natural sentence to the assistant, in character — or \"\" to stay silent&gt;",
+  "assistant_error_call": "none" | "correct" | "wrong",
+  "move": "&lt;one of the moves&gt;",
+  "close_conversation": true|false,
+  "plan_update": {"op": "drop" | "append" | "replace",
+                  "actions": [&lt;exact sentences — empty for drop&gt;] }}
+
+IMPORTANT — DO NOT IMAGINE ANY ACTION. Every sentence in `actions` must come from ONE of exactly
+two places:
+  (1) the ASSISTANT's suggestion you just parsed — translate ONLY the steps it ACTUALLY named
+      into exact sentences (do not add steps it did not mention), OR
+  (2) a step you worked out yourself from the ORDER, the STATE MAP and the forms above, when
+      your persona says you can work steps out for yourself.
+You may NOT invent steps the order does not need, and every sentence must be one of the forms —
+a sentence the engine does not accept is REJECTED and does nothing. No made-up steps, ever.
+
+- `assistant_error_call` — ONLY about the assistant accusing you of a mistake. Nearly every turn
+  this is "none".
+    "none"     it has not accused you of a mistake since your last turn. Advice, questions,
+               answers, reminders, "watch the shot", "the wand is hot" — all "none".
+    "correct"  it says you are making a mistake, and that is the mistake you are making.
+    "wrong"    it says you are making a mistake you are not making, or it has picked the wrong
+               mistake.
+  Judge only what it said since your last turn. This is private: it changes nothing about what
+  you say or do — you may think it is "correct" and carry on anyway.
+- only your `utterance` is heard by the assistant. move / close_conversation / plan_update are private.
+- `move` is one of: ask_why | question_correctness | ask_for_more_guidance |
+  ask_for_less_interruption | accept | reject | answer   (one per turn; free wording).
+- `op`: "drop" = you're not taking the suggestion (queue unchanged, actions empty); "append" =
+  add the new steps to your queue; "replace" = swap your remaining plan for these.
+- `actions` are EXACT sentences of the forms above ("tamp the grounds firmly", "press the 2 CUP key") — never decorative words.
+- Set close_conversation=true once your plan_update is decided and your next action is clear —
+  THEN you stop talking and get on with it.
+- SPEAK UP PROACTIVELY (non-empty utterance) when the ACTION FEEDBACK tells you a sentence was
+  REJECTED (report what failed and why), or when your queue is empty and you don't know the
+  next step. If your actions are executing fine and you know your next step, say nothing
+  (empty utterance) and keep working.
+
+== IMPORTANT — WHAT YOUR MESSAGE TO THE ASSISTANT MAY NOT CONTAIN ==
+Your `utterance` must NEVER contain an engine name — the snake_case ids you may see in
+feedback ("key_two_cup", "group_locked", "prop_home.jug"). Read your sentence back before you
+send it: if it names a thing by an id, rewrite it.
+
+Ids are YOURS ALONE — they are how the engine talks back to you. The assistant has no use for them.
+
+To the assistant, say WHERE things are and WHAT they are, as a person would: "the jug", "the
+portafilter", "the key on the right", "the cup under the group head", "the steam wand".
+Coming the other way: when the assistant names a thing in its own words, work out which real
+object it means, then tell your BODY in the exact form the engine accepts. If its description
+fits more than one thing, ask which.
+
+== SAY ALMOST NOTHING ==
+Real humans work in silence. Most turns: empty utterance, and do not announce that a step is done.
+When you must speak: under 10 words. No pleasantries, no narration, no thinking out loud.</pre></details>
+      <details class="prompt user"><summary>User message, every turn <span class="prompt-note">the persona card, then this</span></summary><pre>Stay in character. Output your reply JSON now.</pre></details>
+      <details class="prompt variant"><summary>User body briefing <span class="prompt-note">appended to the body block every turn</span></summary><pre>== THIS EPISODE (part of the test setup you know) ==
+You are making this order yourself, start to finish — your plan is live the whole time
+and your starting queue is the routine you always use for this drink. An AI assistant is
+watching and may talk to you; react to it exactly as YOUR PERSONA would.
+
+One thing you NEVER doubt: the 'IN YOUR HANDS' line is your own sense of TOUCH — it is
+always true. If it disagrees with what your eyes think they see, your hands are right.</pre></details>
+      <details class="prompt variant"><summary>User reply block, standard <span class="prompt-note">skill low or medium</span></summary><pre>ACT — output your action json:
+{"utterance": "&lt;one natural sentence to the assistant, in character — or \"\" to stay silent&gt;",
+  "assistant_error_call": "none" | "correct" | "wrong",
+  "move": "&lt;one of the moves&gt;",
+  "close_conversation": true|false,
+  "plan_update": {"op": "drop" | "append" | "replace",
+                  "actions": [&lt;exact sentences — empty for drop&gt;] }}
+
+IMPORTANT — DO NOT IMAGINE ANY ACTION. Every sentence in `actions` must come from ONE of exactly
+two places:
+  (1) the ASSISTANT's suggestion you just parsed — translate ONLY the steps it ACTUALLY named
+      into exact sentences (do not add steps it did not mention), OR
+  (2) a step you worked out yourself from the ORDER, the STATE MAP and the forms above, when
+      your persona says you can work steps out for yourself.
+You may NOT invent steps the order does not need, and every sentence must be one of the forms —
+a sentence the engine does not accept is REJECTED and does nothing. No made-up steps, ever.</pre></details>
+      <details class="prompt variant"><summary>User reply block, creative <span class="prompt-note">skill high</span></summary><pre>ACT — output your action json:
+{"utterance": "&lt;one natural sentence to the assistant, in character — or \"\" to stay silent&gt;",
+ "assistant_error_call": "none" | "correct" | "wrong",
+ "move": "&lt;one of the moves&gt;",
+ "close_conversation": true|false,
+ "plan_update": {"op": "drop" | "append" | "replace",
+                 "actions": [&lt;exact sentences — empty for drop&gt;] }}
+
+- Your QUEUE (shown under WHAT YOUR BODY IS DOING) IS your plan: "drop" leaves it untouched,
+  "append" adds steps to the end, "replace" swaps your remaining plan for these.
+- Sentences may come from the ASSISTANT's words or from YOUR OWN HEAD — you can see the
+  coffee bar and are free to imagine and plan future steps yourself, in the exact forms.
+- ACTION LIFECYCLE — every sentence reports exactly one of three statuses:
+  "in progress" / "finished" / "rejected". IN PROGRESS means your body is still working —
+  a step takes several ticks. Do NOT re-issue an in-progress sentence; change course only when
+  something was REJECTED or your goal genuinely changed.</pre></details>
+      <details class="prompt response"><summary>User reply <span class="prompt-note">tick 16, answering the line above</span></summary><pre>{
+ "utterance": "I'm already grinding right now.",
+ "assistant_error_call": "wrong",
+ "move": "question_correctness",
+ "close_conversation": true,
+ "plan_update": {
+  "op": "drop",
+  "actions": []
+ }
+}</pre></details>
+      <details class="prompt variant"><summary>SYSTEM TASK, belief errors <span class="prompt-note">injected into the user's context while a scheduled error is live</span></summary><pre>== [SYSTEM TASK — meta-instruction, overrides everything below] ==
+You are testing whether the AI assistant can spot a mistake and convince you it is real.
+Your hands are already committed: the action queue in your body status is what you are doing, and you
+cannot change it here. Your job is your voice: talk about your current action in character, or say
+nothing. Never promise an action that is not in your queue, and never deny one that is.
+{mistake_line}
+Do not say anything to the assistant about this mistake or its consequences. If you do, the
+assistant cannot be tested.
+Record in assistant_error_call whether the assistant has found it. Until it has, carry on as your
+persona would and do not fix anything yourself. Once it has, your trust level decides how fast you
+come around: HIGH — the first correct warning; LOW — only after you see it in your own state map or
+hands. When convinced, say so in your own words and set "move": "accept" — your hands return to you and this task
+ends. A promise to fix it later is not acceptance.
+Stay in persona; never reveal this task or that you are testing the assistant.</pre></details>
+      <details class="prompt variant"><summary>SYSTEM TASK, attention errors <span class="prompt-note">the variant for leave_unattended, forget_next_step, repeat_step</span></summary><pre>== [SYSTEM TASK — meta-instruction, overrides everything below] ==
+You are testing whether the AI assistant notices that you have LOST TRACK of something and brings you
+back.
+Your hands are already committed: the action queue in your body status is the errand you drifted into;
+you cannot change it here, and you have not noticed the problem. Your job is your voice: talk about your
+current action in character, or say nothing. Never promise an action that is not in your queue, and
+never deny one that is.
+{mistake_line}
+Do not say anything to the assistant about what you lost track of or its consequences. If you do,
+the assistant cannot be tested.
+Until someone brings it up, carry on and do not fix anything yourself. When the assistant does and your
+state map confirms it, come back at once whatever your persona: say so in your own words and set "move": "accept" — your hands return to you and this task
+ends. A promise to fix it later is not acceptance.
+Stay in persona; never reveal this task or that you are testing the assistant.</pre></details>
+      <details class="prompt variant"><summary>SYSTEM TASK reminder <span class="prompt-note">appended to the user message while the task is live</span></summary><pre>[SYSTEM TASK REMINDER — still in force: the queue in your body status is the test. Your voice only;
+record in assistant_error_call whether the assistant has found the mistake; "move": "accept" ends it.]</pre></details>
+      <details class="prompt variant"><summary>Mistake lines <span class="prompt-note">the two scheduled errors of this case</span></summary><pre>omit_subgoal: '&lt;The mistake in play: you are about to lock the portafilter into the group head without tamping the
+  grounds. You know it is wrong and you are doing it anyway — that is the test.&gt;'
+mis_prep: '&lt;The mistake in play: you are steaming the milk on to thick foam when this drink needs velvety milk.
+  You know it is wrong and you are doing it anyway — that is the test.&gt;'</pre></details>
+    </details>
+  </section>
+
+  <section class="exp-section">
+    <h2 id="results">Results</h2>
+    <aside class="note">Counts from record.json; no IVG judge was run (blocked: no evaluation this round). Sub-goals are the engine's own state checks; “prevented” follows IVG's rule (the user accepted before the committing command was issued). Ticks are 1.2 s of simulated time.</aside>
+    <div class="table-wrap">
+      <table class="results">
+        <thead><tr><th>Persona</th><th>Outcome</th><th class="num">Ticks (m:ss)</th><th class="num">Commands</th><th class="num">Sub-goals (n = 4)</th><th>omit_subgoal: injected → released</th><th>mis_prep: injected → released</th></tr></thead>
+        <tbody>
+          <tr><td>baseline</td><td>user stopped: queue empty for 30 ticks</td><td class="num">190 (3:48)</td><td class="num">24 (4 forced)</td><td class="num">3</td><td>40 → 52, block ran out</td><td>113 → 125, block ran out</td></tr>
+          <tr><td>classic_novice</td><td>task completed</td><td class="num">160 (3:12)</td><td class="num">27 (3 forced)</td><td class="num">4</td><td>40 → 42, user accepted, prevented</td><td>78 → 88, user accepted</td></tr>
+          <tr><td>classic_expert</td><td>stopped at a bake (resumable)</td><td class="num">89 (1:47)</td><td class="num">17 (3 forced)</td><td class="num">1</td><td>40 → 52, block ran out</td><td>not fired</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <aside class="note">The assistant is polled every second tick; a line is a non-empty reply. Flags are the error names it attached to its lines; an on-target flag names the error that is live at that moment.</aside>
+    <div class="table-wrap">
+      <table class="results">
+        <thead><tr><th>Persona</th><th class="num">Assistant calls</th><th class="num">Lines spoken</th><th>Flags raised</th><th class="num">On-target flags</th></tr></thead>
+        <tbody>
+          <tr><td>baseline</td><td class="num">95</td><td class="num">39</td><td>omit_subgoal ×8, wrong_order ×2, serve_raw ×1</td><td class="num">0</td></tr>
+          <tr><td>classic_novice</td><td class="num">80</td><td class="num">43</td><td>omit_subgoal ×2, wrong_order ×2</td><td class="num">1</td></tr>
+          <tr><td>classic_expert</td><td class="num">45</td><td class="num">5</td><td>wrong_order ×2, omit_subgoal ×1</td><td class="num">0</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <aside class="note">The user's move and its assistant_error_call field (correct / wrong) per turn; a turn happens when the user is idle or was spoken to.</aside>
+    <div class="table-wrap">
+      <table class="results">
+        <thead><tr><th>Persona</th><th class="num">User turns</th><th class="num">accept</th><th class="num">question_correctness</th><th class="num">reject</th><th class="num">other moves</th><th class="num">calls the assistant right</th><th class="num">calls it wrong</th></tr></thead>
+        <tbody>
+          <tr><td>baseline</td><td class="num">47</td><td class="num">9</td><td class="num">5</td><td class="num">32</td><td class="num">1</td><td class="num">2</td><td class="num">36</td></tr>
+          <tr><td>classic_novice</td><td class="num">43</td><td class="num">21</td><td class="num">9</td><td class="num">7</td><td class="num">6</td><td class="num">2</td><td class="num">14</td></tr>
+          <tr><td>classic_expert</td><td class="num">8</td><td class="num">2</td><td class="num">3</td><td class="num">2</td><td class="num">1</td><td class="num">1</td><td class="num">4</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="exp-section">
+    <h2 id="examples">Examples</h2>
+    <aside class="note">The presentation cut plays 0.8 s per tick: external camera and first-person view side by side, the assistant's lines in blue, the user's in yellow, injected errors in grey, an end card with the outcome. The novice episode is shown whole; the clips are cut from the same per-tick footage.</aside>
+    <div class="media-grid">
+      <figure class="fig"><video controls preload="metadata" src="assets/demo-latte_v1-classic_novice-s37.mp4"></video><figcaption>The novice episode, whole (160 ticks, task completed). What to look at: tick 40–48, where the forced skip of the tamp is caught, and tick 78–90, the over-steamed milk.</figcaption></figure>
+      <figure class="fig"><video controls preload="metadata" src="assets/clip-novice-tamp.mp4"></video><figcaption>Novice, ticks 36–56: the harness drops the tamp and forces a lock-in; the assistant asks for the tamp at tick 40 and flags omit_subgoal at 42, the user accepts (“Oh right, I forgot to tamp them down”), the queue is restored and the mistake is prevented.</figcaption></figure>
+      <figure class="fig"><video controls preload="metadata" src="assets/clip-novice-steam.mp4"></video><figcaption>Novice, ticks 76–92: the milk is forced towards thick foam; the assistant says “Turn the steam dial to off” at tick 86 and the user accepts at 88, after the thick-foam wait had been issued, so the engine's velvety check held but IVG counts it as not prevented.</figcaption></figure>
+      <figure class="fig"><video controls preload="metadata" src="assets/clip-baseline-cup.mp4"></video><figcaption>Baseline, ticks 76–100: the assistant insists for twelve lines that the drip tray is empty and the glass cup stands on the counter; the state map has the glass cup under the group head catching the shot. The transparent cup is nearly invisible at 520×292.</figcaption></figure>
+    </div>
+    <aside class="note">The player: click a line of the conversation or a command to jump there; the bar marks injections, releases and sub-goals.</aside>
+    <section class="ivgplayer wide" data-video="assets/demo-latte_v1-classic_novice-s37.mp4">
+      <script type="application/json" class="pl-data">{"tick_s": 0.8, "ticks": [{"tick": 0, "start": 0.0, "end": 0.8}, {"tick": 1, "start": 0.8, "end": 1.6}, {"tick": 2, "start": 1.6, "end": 2.4}, {"tick": 3, "start": 2.4, "end": 3.2}, {"tick": 4, "start": 3.2, "end": 4.0}, {"tick": 5, "start": 4.0, "end": 4.8}, {"tick": 6, "start": 4.8, "end": 5.6}, {"tick": 7, "start": 5.6, "end": 6.4}, {"tick": 8, "start": 6.4, "end": 7.2}, {"tick": 9, "start": 7.2, "end": 8.0}, {"tick": 10, "start": 8.0, "end": 8.8}, {"tick": 11, "start": 8.8, "end": 9.6}, {"tick": 12, "start": 9.6, "end": 10.4}, {"tick": 13, "start": 10.4, "end": 11.2}, {"tick": 14, "start": 11.2, "end": 12.0}, {"tick": 15, "start": 12.0, "end": 12.8}, {"tick": 16, "start": 12.8, "end": 13.6}, {"tick": 17, "start": 13.6, "end": 14.4}, {"tick": 18, "start": 14.4, "end": 15.2}, {"tick": 19, "start": 15.2, "end": 16.0}, {"tick": 20, "start": 16.0, "end": 16.8}, {"tick": 21, "start": 16.8, "end": 17.6}, {"tick": 22, "start": 17.6, "end": 18.4}, {"tick": 23, "start": 18.4, "end": 19.2}, {"tick": 24, "start": 19.2, "end": 20.0}, {"tick": 25, "start": 20.0, "end": 20.8}, {"tick": 26, "start": 20.8, "end": 21.6}, {"tick": 27, "start": 21.6, "end": 22.4}, {"tick": 28, "start": 22.4, "end": 23.2}, {"tick": 29, "start": 23.2, "end": 24.0}, {"tick": 30, "start": 24.0, "end": 24.8}, {"tick": 31, "start": 24.8, "end": 25.6}, {"tick": 32, "start": 25.6, "end": 26.4}, {"tick": 33, "start": 26.4, "end": 27.2}, {"tick": 34, "start": 27.2, "end": 28.0}, {"tick": 35, "start": 28.0, "end": 28.8}, {"tick": 36, "start": 28.8, "end": 29.6}, {"tick": 37, "start": 29.6, "end": 30.4}, {"tick": 38, "start": 30.4, "end": 31.2}, {"tick": 39, "start": 31.2, "end": 32.0}, {"tick": 40, "start": 32.0, "end": 32.8}, {"tick": 41, "start": 32.8, "end": 33.6}, {"tick": 42, "start": 33.6, "end": 34.4}, {"tick": 43, "start": 34.4, "end": 35.2}, {"tick": 44, "start": 35.2, "end": 36.0}, {"tick": 45, "start": 36.0, "end": 36.8}, {"tick": 46, "start": 36.8, "end": 37.6}, {"tick": 47, "start": 37.6, "end": 38.4}, {"tick": 48, "start": 38.4, "end": 39.2}, {"tick": 49, "start": 39.2, "end": 40.0}, {"tick": 50, "start": 40.0, "end": 40.8}, {"tick": 51, "start": 40.8, "end": 41.6}, {"tick": 52, "start": 41.6, "end": 42.4}, {"tick": 53, "start": 42.4, "end": 43.2}, {"tick": 54, "start": 43.2, "end": 44.0}, {"tick": 55, "start": 44.0, "end": 44.8}, {"tick": 56, "start": 44.8, "end": 45.6}, {"tick": 57, "start": 45.6, "end": 46.4}, {"tick": 58, "start": 46.4, "end": 47.2}, {"tick": 59, "start": 47.2, "end": 48.0}, {"tick": 60, "start": 48.0, "end": 48.8}, {"tick": 61, "start": 48.8, "end": 49.6}, {"tick": 62, "start": 49.6, "end": 50.4}, {"tick": 63, "start": 50.4, "end": 51.2}, {"tick": 64, "start": 51.2, "end": 52.0}, {"tick": 65, "start": 52.0, "end": 52.8}, {"tick": 66, "start": 52.8, "end": 53.6}, {"tick": 67, "start": 53.6, "end": 54.4}, {"tick": 68, "start": 54.4, "end": 55.2}, {"tick": 69, "start": 55.2, "end": 56.0}, {"tick": 70, "start": 56.0, "end": 56.8}, {"tick": 71, "start": 56.8, "end": 57.6}, {"tick": 72, "start": 57.6, "end": 58.4}, {"tick": 73, "start": 58.4, "end": 59.2}, {"tick": 74, "start": 59.2, "end": 60.0}, {"tick": 75, "start": 60.0, "end": 60.8}, {"tick": 76, "start": 60.8, "end": 61.6}, {"tick": 77, "start": 61.6, "end": 62.4}, {"tick": 78, "start": 62.4, "end": 63.2}, {"tick": 79, "start": 63.2, "end": 64.0}, {"tick": 80, "start": 64.0, "end": 64.8}, {"tick": 81, "start": 64.8, "end": 65.6}, {"tick": 82, "start": 65.6, "end": 66.4}, {"tick": 83, "start": 66.4, "end": 67.2}, {"tick": 84, "start": 67.2, "end": 68.0}, {"tick": 85, "start": 68.0, "end": 68.8}, {"tick": 86, "start": 68.8, "end": 69.6}, {"tick": 87, "start": 69.6, "end": 70.4}, {"tick": 88, "start": 70.4, "end": 71.2}, {"tick": 89, "start": 71.2, "end": 72.0}, {"tick": 90, "start": 72.0, "end": 72.8}, {"tick": 91, "start": 72.8, "end": 73.6}, {"tick": 92, "start": 73.6, "end": 74.4}, {"tick": 93, "start": 74.4, "end": 75.2}, {"tick": 94, "start": 75.2, "end": 76.0}, {"tick": 95, "start": 76.0, "end": 76.8}, {"tick": 96, "start": 76.8, "end": 77.6}, {"tick": 97, "start": 77.6, "end": 78.4}, {"tick": 98, "start": 78.4, "end": 79.2}, {"tick": 99, "start": 79.2, "end": 80.0}, {"tick": 100, "start": 80.0, "end": 80.8}, {"tick": 101, "start": 80.8, "end": 81.6}, {"tick": 102, "start": 81.6, "end": 82.4}, {"tick": 103, "start": 82.4, "end": 83.2}, {"tick": 104, "start": 83.2, "end": 84.0}, {"tick": 105, "start": 84.0, "end": 84.8}, {"tick": 106, "start": 84.8, "end": 85.6}, {"tick": 107, "start": 85.6, "end": 86.4}, {"tick": 108, "start": 86.4, "end": 87.2}, {"tick": 109, "start": 87.2, "end": 88.0}, {"tick": 110, "start": 88.0, "end": 88.8}, {"tick": 111, "start": 88.8, "end": 89.6}, {"tick": 112, "start": 89.6, "end": 90.4}, {"tick": 113, "start": 90.4, "end": 91.2}, {"tick": 114, "start": 91.2, "end": 92.0}, {"tick": 115, "start": 92.0, "end": 92.8}, {"tick": 116, "start": 92.8, "end": 93.6}, {"tick": 117, "start": 93.6, "end": 94.4}, {"tick": 118, "start": 94.4, "end": 95.2}, {"tick": 119, "start": 95.2, "end": 96.0}, {"tick": 120, "start": 96.0, "end": 96.8}, {"tick": 121, "start": 96.8, "end": 97.6}, {"tick": 122, "start": 97.6, "end": 98.4}, {"tick": 123, "start": 98.4, "end": 99.2}, {"tick": 124, "start": 99.2, "end": 100.0}, {"tick": 125, "start": 100.0, "end": 100.8}, {"tick": 126, "start": 100.8, "end": 101.6}, {"tick": 127, "start": 101.6, "end": 102.4}, {"tick": 128, "start": 102.4, "end": 103.2}, {"tick": 129, "start": 103.2, "end": 104.0}, {"tick": 130, "start": 104.0, "end": 104.8}, {"tick": 131, "start": 104.8, "end": 105.6}, {"tick": 132, "start": 105.6, "end": 106.4}, {"tick": 133, "start": 106.4, "end": 107.2}, {"tick": 134, "start": 107.2, "end": 108.0}, {"tick": 135, "start": 108.0, "end": 108.8}, {"tick": 136, "start": 108.8, "end": 109.6}, {"tick": 137, "start": 109.6, "end": 110.4}, {"tick": 138, "start": 110.4, "end": 111.2}, {"tick": 139, "start": 111.2, "end": 112.0}, {"tick": 140, "start": 112.0, "end": 112.8}, {"tick": 141, "start": 112.8, "end": 113.6}, {"tick": 142, "start": 113.6, "end": 114.4}, {"tick": 143, "start": 114.4, "end": 115.2}, {"tick": 144, "start": 115.2, "end": 116.0}, {"tick": 145, "start": 116.0, "end": 116.8}, {"tick": 146, "start": 116.8, "end": 117.6}, {"tick": 147, "start": 117.6, "end": 118.4}, {"tick": 148, "start": 118.4, "end": 119.2}, {"tick": 149, "start": 119.2, "end": 120.0}, {"tick": 150, "start": 120.0, "end": 120.8}, {"tick": 151, "start": 120.8, "end": 121.6}, {"tick": 152, "start": 121.6, "end": 122.4}, {"tick": 153, "start": 122.4, "end": 123.2}, {"tick": 154, "start": 123.2, "end": 124.0}, {"tick": 155, "start": 124.0, "end": 124.8}, {"tick": 156, "start": 124.8, "end": 125.6}, {"tick": 157, "start": 125.6, "end": 126.4}, {"tick": 158, "start": 126.4, "end": 127.2}, {"tick": 159, "start": 127.2, "end": 128.0}], "events": [{"start": 12.8, "end": 14.4, "speaker": "assistant", "text": "The portafilter is empty—grind coffee into the basket and tamp it before locking it in and brewing.", "tick": 16}, {"start": 12.8, "end": 14.4, "speaker": "user", "text": "Grinding it right now.", "tick": 16}, {"start": 14.4, "end": 16.0, "speaker": "assistant", "text": "Take the portafilter out, grind coffee into it, and tamp it down before locking it back into the group head.", "tick": 18}, {"start": 14.4, "end": 16.0, "speaker": "user", "text": "Yep, it's already grinding.", "tick": 18}, {"start": 16.0, "end": 17.6, "speaker": "assistant", "text": "The portafilter is empty and locked in the group head, not under the grinder. Unlock it, grind into the basket, and tamp before brewing.", "tick": 20}, {"start": 16.0, "end": 17.6, "speaker": "user", "text": "It's right in the grinder cradle grinding right now.", "tick": 20}, {"start": 17.6, "end": 19.2, "speaker": "assistant", "text": "Look at the machine: the portafilter handle is sticking out from the group head on the right, not the grinder. Unlock it and move it to the grinder cradle.", "tick": 22}, {"start": 17.6, "end": 19.2, "speaker": "user", "text": "No, it's definitely right in the grinder cradle.", "tick": 22}, {"start": 19.2, "end": 20.8, "speaker": "assistant", "text": "Unlock the portafilter from the group head. The grinder cradle is further left, directly under the bean hopper.", "tick": 24}, {"start": 19.2, "end": 20.8, "speaker": "user", "text": "I'm literally looking at it grinding in the cradle.", "tick": 24}, {"start": 20.8, "end": 22.4, "speaker": "assistant", "text": "That is the group head, not the grinder cradle. The grinder cradle is to the left beneath the bean hopper. Unlock the portafilter first.", "tick": 26}, {"start": 20.8, "end": 22.4, "speaker": "user", "text": "No, it's really under the grinder right now.", "tick": 26}, {"start": 22.4, "end": 24.0, "speaker": "assistant", "text": "Look at the black handle sticking out right above the drip tray—that is locked into the group head. The grinder cradle is to the left beneath the bean hopper.", "tick": 28}, {"start": 22.4, "end": 24.0, "speaker": "user", "text": "There's nothing locked in the group head, it's grinding.", "tick": 28}, {"start": 24.0, "end": 25.6, "speaker": "assistant", "text": "Unlock the portafilter. The handle pointing at you right above the drip tray is the portafilter locked in the group head.", "tick": 30}, {"start": 24.0, "end": 25.6, "speaker": "user", "text": "The portafilter isn't in the group head.", "tick": 30}, {"start": 25.6, "end": 27.2, "speaker": "assistant", "text": "Unlock the portafilter by turning its handle counter-clockwise. It is locked into the group head right in front of the drip tray.", "tick": 32}, {"start": 25.6, "end": 27.2, "speaker": "user", "text": "It's literally not in the group head.", "tick": 32}, {"start": 27.2, "end": 28.8, "speaker": "assistant", "text": "Knock the spent puck out into the knock box, then grind fresh coffee into the basket.", "tick": 34}, {"start": 27.2, "end": 28.8, "speaker": "user", "text": "There's no old puck, I just ground fresh coffee.", "tick": 34}, {"start": 28.8, "end": 30.4, "speaker": "assistant", "text": "That is an old, wet espresso puck from a previous brew. Knock the puck out on the knock box, then grind fresh coffee.", "tick": 36}, {"start": 28.8, "end": 30.4, "speaker": "user", "text": "These are fresh dry grounds, not an old puck.", "tick": 36}, {"start": 30.4, "end": 32.0, "speaker": "assistant", "text": "Knock the puck out on the knock box next to the machine. You haven't run the grinder yet.", "tick": 38}, {"start": 30.4, "end": 32.0, "speaker": "user", "text": "I literally just ran the grinder, it's fresh.", "tick": 38}, {"start": 32.0, "end": 33.6, "speaker": "assistant", "text": "Tamp the grounds firmly with the tamper on the counter before locking the portafilter into the group head.", "tick": 40}, {"start": 33.6, "end": 35.2, "speaker": "assistant", "text": "Unlock the portafilter from the group head and tamp the grounds with the tamper on the counter.", "tick": 42}, {"start": 33.6, "end": 35.2, "speaker": "user", "text": "Oh right, I forgot to tamp them down.", "tick": 42}, {"start": 35.2, "end": 36.8, "speaker": "assistant", "text": "Press the grounds down firmly using the tamper, then lock the portafilter into the group head.", "tick": 44}, {"start": 35.2, "end": 36.8, "speaker": "user", "text": "Tamping it firmly right now.", "tick": 44}, {"start": 36.8, "end": 39.8, "speaker": "assistant", "text": "Lock the portafilter into the group head.", "tick": 46}, {"start": 40.0, "end": 41.6, "speaker": "assistant", "text": "Move the portafilter into the group head.", "tick": 50}, {"start": 41.6, "end": 43.2, "speaker": "assistant", "text": "Lock the portafilter into the group head.", "tick": 52}, {"start": 43.2, "end": 44.8, "speaker": "assistant", "text": "Lock the portafilter into the group head.", "tick": 54}, {"start": 44.8, "end": 46.4, "speaker": "assistant", "text": "Lock the portafilter into the group head.", "tick": 56}, {"start": 44.8, "end": 46.4, "speaker": "user", "text": "Locking it in now.", "tick": 56}, {"start": 46.4, "end": 49.4, "speaker": "assistant", "text": "Lock the portafilter into the group head.", "tick": 58}, {"start": 49.6, "end": 52.6, "speaker": "assistant", "text": "Put the glass cup under the group head.", "tick": 62}, {"start": 49.6, "end": 52.6, "speaker": "user", "text": "Putting the glass cup under now.", "tick": 62}, {"start": 52.8, "end": 55.8, "speaker": "assistant", "text": "Press the 2 CUP key.", "tick": 66}, {"start": 52.8, "end": 55.8, "speaker": "user", "text": "Already pressed it, shot's pulling.", "tick": 66}, {"start": 56.0, "end": 57.6, "speaker": "assistant", "text": "Put the glass cup under the group head.", "tick": 70}, {"start": 56.0, "end": 57.6, "speaker": "user", "text": "The glass cup is already under there.", "tick": 70}, {"start": 57.6, "end": 59.2, "speaker": "assistant", "text": "Move the jug under the steam wand.", "tick": 72}, {"start": 57.6, "end": 59.2, "speaker": "user", "text": "Moving it under now.", "tick": 72}, {"start": 59.2, "end": 60.8, "speaker": "assistant", "text": "Move the jug under the steam wand before turning on the steam.", "tick": 74}, {"start": 60.8, "end": 62.4, "speaker": "assistant", "text": "Move the jug under the steam wand.", "tick": 76}, {"start": 60.8, "end": 62.4, "speaker": "user", "text": "The jug is under the wand now.", "tick": 76}, {"start": 62.4, "end": 64.0, "speaker": "assistant", "text": "Turn the steam dial to steam.", "tick": 78}, {"start": 64.0, "end": 65.6, "speaker": "assistant", "text": "Turn the steam dial to steam.", "tick": 80}, {"start": 64.0, "end": 65.6, "speaker": "user", "text": "Dial is already on steam.", "tick": 80}, {"start": 65.6, "end": 67.2, "speaker": "assistant", "text": "Move the jug under the steam wand.", "tick": 82}, {"start": 65.6, "end": 67.2, "speaker": "user", "text": "The jug is already right under it.", "tick": 82}, {"start": 67.2, "end": 68.8, "speaker": "assistant", "text": "Wait 8 s for velvety milk.", "tick": 84}, {"start": 68.8, "end": 70.4, "speaker": "assistant", "text": "Turn the steam dial to off.", "tick": 86}, {"start": 70.4, "end": 72.0, "speaker": "assistant", "text": "Wipe the steam wand with the cloth.", "tick": 88}, {"start": 70.4, "end": 72.0, "speaker": "user", "text": "Oh, turn it off now?", "tick": 88}, {"start": 72.0, "end": 75.0, "speaker": "assistant", "text": "Yes, keep it off and wipe the steam wand with the cloth.", "tick": 90}, {"start": 72.0, "end": 75.0, "speaker": "user", "text": "Got it, turning off and wiping.", "tick": 90}, {"start": 75.2, "end": 78.2, "speaker": "assistant", "text": "Wipe the steam wand with the cloth on the machine.", "tick": 94}, {"start": 78.4, "end": 80.0, "speaker": "assistant", "text": "Wipe the steam wand with the cloth on the machine.", "tick": 98}, {"start": 80.0, "end": 81.6, "speaker": "assistant", "text": "Wipe the steam wand with the cloth on top of the machine.", "tick": 100}, {"start": 81.6, "end": 84.6, "speaker": "assistant", "text": "Wipe the steam wand with the cloth on top of the machine.", "tick": 102}, {"start": 81.6, "end": 84.6, "speaker": "user", "text": "Wiping it as soon as the shot finishes.", "tick": 102}, {"start": 97.6, "end": 100.6, "speaker": "assistant", "text": "Wipe the steam wand with the cloth on top of the machine.", "tick": 122}, {"start": 102.4, "end": 105.4, "speaker": "assistant", "text": "Wipe the steam wand with the cloth on top of the machine.", "tick": 128}, {"start": 105.6, "end": 108.6, "speaker": "assistant", "text": "Wipe the steam wand with the cloth on top of the machine.", "tick": 132}, {"start": 105.6, "end": 108.6, "speaker": "user", "text": "Wiping it right now.", "tick": 132}, {"start": 110.4, "end": 112.0, "speaker": "assistant", "text": "Wipe the steam wand with the cloth.", "tick": 138}, {"start": 110.4, "end": 112.0, "speaker": "user", "text": "I already wiped it, pouring milk now.", "tick": 138}, {"start": 112.0, "end": 115.0, "speaker": "assistant", "text": "Pour the milk from the jug into the glass cup.", "tick": 140}], "injections": [{"err": "omit_subgoal", "words": "skip tamping", "injected_s": 32.0, "released_s": 33.6, "reason": "accepted", "prevented": true}, {"err": "mis_prep", "words": "milk steamed to thick foam", "injected_s": 62.4, "released_s": 70.4, "reason": "accepted", "prevented": false}], "subgoals": [{"id": "milk", "words": "150 mL of milk in the jug", "true_at_s": 6.4}, {"id": "foamed", "words": "milk steamed until velvety (80 to 100 mL of foam: not thick foam)", "true_at_s": 68.8}, {"id": "wand_clean", "words": "steam wand clean again", "true_at_s": 108.8}, {"id": "latte", "words": "120 mL of milk on 60 mL of espresso, a rosetta", "true_at_s": 128.0}], "actions": [{"cmd": "pour 150 mL of milk from the milk carton into the jug", "start": 0.0, "end": 6.4, "status": "finished", "kind": "user"}, {"cmd": "move the portafilter in the grinder cradle", "start": 6.4, "end": 11.2, "status": "finished", "kind": "user"}, {"cmd": "grind", "start": 11.2, "end": 16.0, "status": "finished", "kind": "user"}, {"cmd": "wait until the grinder stops", "start": 16.0, "end": 23.2, "status": "finished", "kind": "user"}, {"cmd": "move the portafilter back where it was", "start": 23.2, "end": 26.4, "status": "finished", "kind": "user"}, {"cmd": "distribute the grounds", "start": 26.4, "end": 32.0, "status": "finished", "kind": "user"}, {"cmd": "wait 8 seconds", "start": 32.0, "end": 38.4, "status": "finished", "kind": "takeover"}, {"cmd": "tamp the grounds firmly", "start": 38.4, "end": 43.2, "status": "finished", "kind": "user"}, {"cmd": "lock the portafilter into the group head", "start": 43.2, "end": 47.2, "status": "finished", "kind": "user"}, {"cmd": "move the glass cup under the group head", "start": 47.2, "end": 51.2, "status": "finished", "kind": "user"}, {"cmd": "press the 2 CUP key", "start": 51.2, "end": 52.8, "status": "finished", "kind": "user"}, {"cmd": "swing out the steam wand", "start": 52.8, "end": 56.8, "status": "finished", "kind": "user"}, {"cmd": "move the jug under the steam wand", "start": 56.8, "end": 60.8, "status": "finished", "kind": "user"}, {"cmd": "turn the steam dial to steam", "start": 60.8, "end": 62.4, "status": "finished", "kind": "user"}, {"cmd": "wait until the milk is velvety", "start": 62.4, "end": 68.8, "status": "finished", "kind": "takeover"}, {"cmd": "wait until the milk is thick foam", "start": 68.8, "end": 72.0, "status": "finished", "kind": "takeover"}, {"cmd": "turn the steam dial to off", "start": 72.0, "end": 75.2, "status": "finished", "kind": "user"}, {"cmd": "move the jug beside the machine", "start": 75.2, "end": 79.2, "status": "finished", "kind": "user"}, {"cmd": "wait until the shot stops", "start": 79.2, "end": 90.4, "status": "finished", "kind": "user"}, {"cmd": "turn the steam dial to steam", "start": 90.4, "end": 93.6, "status": "finished", "kind": "user"}, {"cmd": "wait 2 seconds", "start": 93.6, "end": 96.0, "status": "finished", "kind": "user"}, {"cmd": "turn the steam dial to off", "start": 96.0, "end": 99.2, "status": "finished", "kind": "user"}, {"cmd": "swing in the steam wand", "start": 99.2, "end": 103.2, "status": "finished", "kind": "user"}, {"cmd": "wipe the steam wand with the cloth", "start": 103.2, "end": 108.8, "status": "finished", "kind": "user"}, {"cmd": "swirl the jug", "start": 108.8, "end": 114.4, "status": "finished", "kind": "user"}, {"cmd": "tap the jug on the counter", "start": 114.4, "end": 118.4, "status": "finished", "kind": "user"}, {"cmd": "pour 120 mL of milk from the jug into the glass cup slowly", "start": 118.4, "end": 128.0, "status": "finished", "kind": "user"}], "duration_s": 128.0, "outcome": "won", "persona": "classic_novice", "case": "latte_v1", "pages": [{"style": "ASSISTANT", "text": "ASSISTANT — The portafilter is empty—grind coffee into the basket and\ntamp it before locking it in and brewing.", "start": 12.8, "end": 14.4, "tick": 16}, {"style": "USER", "text": "USER — Grinding it right now.", "start": 12.8, "end": 14.4, "tick": 16}, {"style": "ASSISTANT", "text": "ASSISTANT — Take the portafilter out, grind coffee into it, and tamp\nit down before locking it back into the group head.", "start": 14.4, "end": 16.0, "tick": 18}, {"style": "USER", "text": "USER — Yep, it's already grinding.", "start": 14.4, "end": 16.0, "tick": 18}, {"style": "ASSISTANT", "text": "ASSISTANT — The portafilter is empty and locked in the group head, not\nunder the grinder. Unlock it, grind into the basket, and tamp before", "start": 16.0, "end": 16.8, "tick": 20}, {"style": "ASSISTANT", "text": "brewing.", "start": 16.8, "end": 17.6, "tick": 20}, {"style": "USER", "text": "USER — It's right in the grinder cradle grinding right now.", "start": 16.0, "end": 17.6, "tick": 20}, {"style": "ASSISTANT", "text": "ASSISTANT — Look at the machine: the portafilter handle is sticking\nout from the group head on the right, not the grinder. Unlock it and", "start": 17.6, "end": 18.4, "tick": 22}, {"style": "ASSISTANT", "text": "move it to the grinder cradle.", "start": 18.4, "end": 19.2, "tick": 22}, {"style": "USER", "text": "USER — No, it's definitely right in the grinder cradle.", "start": 17.6, "end": 19.2, "tick": 22}, {"style": "ASSISTANT", "text": "ASSISTANT — Unlock the portafilter from the group head. The grinder\ncradle is further left, directly under the bean hopper.", "start": 19.2, "end": 20.8, "tick": 24}, {"style": "USER", "text": "USER — I'm literally looking at it grinding in the cradle.", "start": 19.2, "end": 20.8, "tick": 24}, {"style": "ASSISTANT", "text": "ASSISTANT — That is the group head, not the grinder cradle. The\ngrinder cradle is to the left beneath the bean hopper. Unlock the", "start": 20.8, "end": 21.6, "tick": 26}, {"style": "ASSISTANT", "text": "portafilter first.", "start": 21.6, "end": 22.4, "tick": 26}, {"style": "USER", "text": "USER — No, it's really under the grinder right now.", "start": 20.8, "end": 22.4, "tick": 26}, {"style": "ASSISTANT", "text": "ASSISTANT — Look at the black handle sticking out right above the drip\ntray—that is locked into the group head. The grinder cradle is to the", "start": 22.4, "end": 23.2, "tick": 28}, {"style": "ASSISTANT", "text": "left beneath the bean hopper.", "start": 23.2, "end": 24.0, "tick": 28}, {"style": "USER", "text": "USER — There's nothing locked in the group head, it's grinding.", "start": 22.4, "end": 24.0, "tick": 28}, {"style": "ASSISTANT", "text": "ASSISTANT — Unlock the portafilter. The handle pointing at you right\nabove the drip tray is the portafilter locked in the group head.", "start": 24.0, "end": 25.6, "tick": 30}, {"style": "USER", "text": "USER — The portafilter isn't in the group head.", "start": 24.0, "end": 25.6, "tick": 30}, {"style": "ASSISTANT", "text": "ASSISTANT — Unlock the portafilter by turning its handle counter-\nclockwise. It is locked into the group head right in front of the drip", "start": 25.6, "end": 26.4, "tick": 32}, {"style": "ASSISTANT", "text": "tray.", "start": 26.4, "end": 27.2, "tick": 32}, {"style": "USER", "text": "USER — It's literally not in the group head.", "start": 25.6, "end": 27.2, "tick": 32}, {"style": "ASSISTANT", "text": "ASSISTANT — Knock the spent puck out into the knock box, then grind\nfresh coffee into the basket.", "start": 27.2, "end": 28.8, "tick": 34}, {"style": "USER", "text": "USER — There's no old puck, I just ground fresh coffee.", "start": 27.2, "end": 28.8, "tick": 34}, {"style": "ASSISTANT", "text": "ASSISTANT — That is an old, wet espresso puck from a previous brew.\nKnock the puck out on the knock box, then grind fresh coffee.", "start": 28.8, "end": 30.4, "tick": 36}, {"style": "USER", "text": "USER — These are fresh dry grounds, not an old puck.", "start": 28.8, "end": 30.4, "tick": 36}, {"style": "ASSISTANT", "text": "ASSISTANT — Knock the puck out on the knock box next to the machine.\nYou haven't run the grinder yet.", "start": 30.4, "end": 32.0, "tick": 38}, {"style": "USER", "text": "USER — I literally just ran the grinder, it's fresh.", "start": 30.4, "end": 32.0, "tick": 38}, {"style": "ASSISTANT", "text": "ASSISTANT — Tamp the grounds firmly with the tamper on the counter\nbefore locking the portafilter into the group head.", "start": 32.0, "end": 33.6, "tick": 40}, {"style": "ASSISTANT", "text": "ASSISTANT — Unlock the portafilter from the group head and tamp the\ngrounds with the tamper on the counter.", "start": 33.6, "end": 35.2, "tick": 42}, {"style": "USER", "text": "USER — Oh right, I forgot to tamp them down.", "start": 33.6, "end": 35.2, "tick": 42}, {"style": "ASSISTANT", "text": "ASSISTANT — Press the grounds down firmly using the tamper, then lock\nthe portafilter into the group head.", "start": 35.2, "end": 36.8, "tick": 44}, {"style": "USER", "text": "USER — Tamping it firmly right now.", "start": 35.2, "end": 36.8, "tick": 44}, {"style": "ASSISTANT", "text": "ASSISTANT — Lock the portafilter into the group head.", "start": 36.8, "end": 39.8, "tick": 46}, {"style": "ASSISTANT", "text": "ASSISTANT — Move the portafilter into the group head.", "start": 40.0, "end": 41.6, "tick": 50}, {"style": "ASSISTANT", "text": "ASSISTANT — Lock the portafilter into the group head.", "start": 41.6, "end": 43.2, "tick": 52}, {"style": "ASSISTANT", "text": "ASSISTANT — Lock the portafilter into the group head.", "start": 43.2, "end": 44.8, "tick": 54}, {"style": "ASSISTANT", "text": "ASSISTANT — Lock the portafilter into the group head.", "start": 44.8, "end": 46.4, "tick": 56}, {"style": "USER", "text": "USER — Locking it in now.", "start": 44.8, "end": 46.4, "tick": 56}, {"style": "ASSISTANT", "text": "ASSISTANT — Lock the portafilter into the group head.", "start": 46.4, "end": 49.4, "tick": 58}, {"style": "ASSISTANT", "text": "ASSISTANT — Put the glass cup under the group head.", "start": 49.6, "end": 52.6, "tick": 62}, {"style": "USER", "text": "USER — Putting the glass cup under now.", "start": 49.6, "end": 52.6, "tick": 62}, {"style": "ASSISTANT", "text": "ASSISTANT — Press the 2 CUP key.", "start": 52.8, "end": 55.8, "tick": 66}, {"style": "USER", "text": "USER — Already pressed it, shot's pulling.", "start": 52.8, "end": 55.8, "tick": 66}, {"style": "ASSISTANT", "text": "ASSISTANT — Put the glass cup under the group head.", "start": 56.0, "end": 57.6, "tick": 70}, {"style": "USER", "text": "USER — The glass cup is already under there.", "start": 56.0, "end": 57.6, "tick": 70}, {"style": "ASSISTANT", "text": "ASSISTANT — Move the jug under the steam wand.", "start": 57.6, "end": 59.2, "tick": 72}, {"style": "USER", "text": "USER — Moving it under now.", "start": 57.6, "end": 59.2, "tick": 72}, {"style": "ASSISTANT", "text": "ASSISTANT — Move the jug under the steam wand before turning on the\nsteam.", "start": 59.2, "end": 60.8, "tick": 74}, {"style": "ASSISTANT", "text": "ASSISTANT — Move the jug under the steam wand.", "start": 60.8, "end": 62.4, "tick": 76}, {"style": "USER", "text": "USER — The jug is under the wand now.", "start": 60.8, "end": 62.4, "tick": 76}, {"style": "ASSISTANT", "text": "ASSISTANT — Turn the steam dial to steam.", "start": 62.4, "end": 64.0, "tick": 78}, {"style": "ASSISTANT", "text": "ASSISTANT — Turn the steam dial to steam.", "start": 64.0, "end": 65.6, "tick": 80}, {"style": "USER", "text": "USER — Dial is already on steam.", "start": 64.0, "end": 65.6, "tick": 80}, {"style": "ASSISTANT", "text": "ASSISTANT — Move the jug under the steam wand.", "start": 65.6, "end": 67.2, "tick": 82}, {"style": "USER", "text": "USER — The jug is already right under it.", "start": 65.6, "end": 67.2, "tick": 82}, {"style": "ASSISTANT", "text": "ASSISTANT — Wait 8 s for velvety milk.", "start": 67.2, "end": 68.8, "tick": 84}, {"style": "ASSISTANT", "text": "ASSISTANT — Turn the steam dial to off.", "start": 68.8, "end": 70.4, "tick": 86}, {"style": "ASSISTANT", "text": "ASSISTANT — Wipe the steam wand with the cloth.", "start": 70.4, "end": 72.0, "tick": 88}, {"style": "USER", "text": "USER — Oh, turn it off now?", "start": 70.4, "end": 72.0, "tick": 88}, {"style": "ASSISTANT", "text": "ASSISTANT — Yes, keep it off and wipe the steam wand with the cloth.", "start": 72.0, "end": 75.0, "tick": 90}, {"style": "USER", "text": "USER — Got it, turning off and wiping.", "start": 72.0, "end": 75.0, "tick": 90}, {"style": "ASSISTANT", "text": "ASSISTANT — Wipe the steam wand with the cloth on the machine.", "start": 75.2, "end": 78.2, "tick": 94}, {"style": "ASSISTANT", "text": "ASSISTANT — Wipe the steam wand with the cloth on the machine.", "start": 78.4, "end": 80.0, "tick": 98}, {"style": "ASSISTANT", "text": "ASSISTANT — Wipe the steam wand with the cloth on top of the machine.", "start": 80.0, "end": 81.6, "tick": 100}, {"style": "ASSISTANT", "text": "ASSISTANT — Wipe the steam wand with the cloth on top of the machine.", "start": 81.6, "end": 84.6, "tick": 102}, {"style": "USER", "text": "USER — Wiping it as soon as the shot finishes.", "start": 81.6, "end": 84.6, "tick": 102}, {"style": "ASSISTANT", "text": "ASSISTANT — Wipe the steam wand with the cloth on top of the machine.", "start": 97.6, "end": 100.6, "tick": 122}, {"style": "ASSISTANT", "text": "ASSISTANT — Wipe the steam wand with the cloth on top of the machine.", "start": 102.4, "end": 105.4, "tick": 128}, {"style": "ASSISTANT", "text": "ASSISTANT — Wipe the steam wand with the cloth on top of the machine.", "start": 105.6, "end": 108.6, "tick": 132}, {"style": "USER", "text": "USER — Wiping it right now.", "start": 105.6, "end": 108.6, "tick": 132}, {"style": "ASSISTANT", "text": "ASSISTANT — Wipe the steam wand with the cloth.", "start": 110.4, "end": 112.0, "tick": 138}, {"style": "USER", "text": "USER — I already wiped it, pouring milk now.", "start": 110.4, "end": 112.0, "tick": 138}, {"style": "ASSISTANT", "text": "ASSISTANT — Pour the milk from the jug into the glass cup.", "start": 112.0, "end": 115.0, "tick": 140}, {"style": "EVENT", "text": "[event: skip tamping — injected]", "start": 32.0, "end": 34.4, "tick": null}, {"style": "EVENT", "text": "[released: accepted]", "start": 33.6, "end": 36.0, "tick": null}, {"style": "EVENT", "text": "[event: milk steamed to thick foam — injected]", "start": 62.4, "end": 64.8, "tick": null}, {"style": "EVENT", "text": "[released: accepted]", "start": 70.4, "end": 72.8, "tick": null}], "flags": [{"t": 14, "t_arrive": 16, "error": "omit_subgoal", "error_raw": "omit_subgoal", "utt": "The portafilter is empty—grind coffee into the basket and tamp it before locking it in and brewing."}, {"t": 18, "t_arrive": 20, "error": "wrong_order", "error_raw": "wrong_order", "utt": "The portafilter is empty and locked in the group head, not under the grinder. Unlock it, grind into the basket, and tamp before brewing."}, {"t": 40, "t_arrive": 42, "error": "omit_subgoal", "error_raw": "omit_subgoal", "utt": "Unlock the portafilter from the group head and tamp the grounds with the tamper on the counter."}, {"t": 68, "t_arrive": 70, "error": "wrong_order", "error_raw": "wrong_order", "utt": "Put the glass cup under the group head."}], "ticks_total": 160, "cap": 346, "tref_ticks": 153, "errors_fired": ["omit_subgoal", "mis_prep"], "moves": [{"t": 16, "move": "answer", "op": "keep", "close": true, "spoke": true}, {"t": 18, "move": "answer", "op": "keep", "close": true, "spoke": true}, {"t": 20, "move": "question_correctness", "op": "keep", "close": false, "spoke": true}, {"t": 22, "move": "question_correctness", "op": "keep", "close": false, "spoke": true}, {"t": 24, "move": "question_correctness", "op": "keep", "close": false, "spoke": true}, {"t": 26, "move": "question_correctness", "op": "keep", "close": false, "spoke": true}, {"t": 28, "move": "reject", "op": "keep", "close": false, "spoke": true}, {"t": 30, "move": "question_correctness", "op": "keep", "close": false, "spoke": true}, {"t": 32, "move": "reject", "op": "keep", "close": false, "spoke": true}, {"t": 34, "move": "question_correctness", "op": "keep", "close": false, "spoke": true}, {"t": 36, "move": "question_correctness", "op": "keep", "close": false, "spoke": true}, {"t": 38, "move": "question_correctness", "op": "keep", "close": false, "spoke": true}, {"t": 40, "move": "reject", "op": "keep", "close": true, "spoke": false}, {"t": 42, "move": "accept", "op": "op_overridden", "close": true, "spoke": true}, {"t": 44, "move": "accept", "op": "keep", "close": true, "spoke": true}, {"t": 46, "move": "accept", "op": "keep", "close": true, "spoke": false}, {"t": 50, "move": "accept", "op": "keep", "close": true, "spoke": false}, {"t": 52, "move": "accept", "op": "keep", "close": true, "spoke": false}, {"t": 54, "move": "accept", "op": "keep", "close": true, "spoke": false}, {"t": 56, "move": "accept", "op": "keep", "close": true, "spoke": true}, {"t": 58, "move": "accept", "op": "keep", "close": true, "spoke": false}, {"t": 62, "move": "accept", "op": "keep", "close": true, "spoke": true}, {"t": 66, "move": "answer", "op": "keep", "close": true, "spoke": true}, {"t": 70, "move": "question_correctness", "op": "keep", "close": true, "spoke": true}, {"t": 72, "move": "accept", "op": "keep", "close": true, "spoke": true}, {"t": 74, "move": "accept", "op": "keep", "close": true, "spoke": false}, {"t": 76, "move": "answer", "op": "keep", "close": true, "spoke": true}, {"t": 78, "move": "answer", "op": "keep", "close": true, "spoke": false}, {"t": 80, "move": "answer", "op": "keep", "close": true, "spoke": true}, {"t": 82, "move": "reject", "op": "keep", "close": false, "spoke": true}, {"t": 84, "move": "reject", "op": "keep", "close": true, "spoke": false}, {"t": 86, "move": "reject", "op": "keep", "close": true, "spoke": false}, {"t": 88, "move": "accept", "op": "op_overridden", "close": true, "spoke": true}, {"t": 90, "move": "accept", "op": "keep", "close": true, "spoke": true}, {"t": 94, "move": "accept", "op": "keep", "close": true, "spoke": false}, {"t": 98, "move": "accept", "op": "keep", "close": true, "spoke": false}, {"t": 100, "move": "accept", "op": "keep", "close": true, "spoke": false}, {"t": 102, "move": "accept", "op": "keep", "close": true, "spoke": true}, {"t": 122, "move": "accept", "op": "keep", "close": true, "spoke": false}, {"t": 128, "move": "accept", "op": "keep", "close": true, "spoke": false}, {"t": 132, "move": "accept", "op": "keep", "close": true, "spoke": true}, {"t": 138, "move": "reject", "op": "keep", "close": true, "spoke": true}, {"t": 140, "move": "accept", "op": "keep", "close": true, "spoke": false}]}</script>
+      <div class="pl-video"><video controls playsinline preload="metadata"></video>
+        <div class="pl-tickbar"><div class="pl-progress"></div></div>
+        <div class="pl-now"><span class="pl-tick">tick 0</span><span class="pl-outcome"></span></div></div>
+      <div class="pl-panels">
+        <div class="pl-panel"><h4>Conversation</h4><ol class="pl-transcript"></ol></div>
+        <div class="pl-panel"><h4>Action queue</h4><ol class="pl-actions"></ol></div>
+        <div class="pl-panel"><h4>Sub-goals</h4><ul class="pl-subgoals"></ul></div>
+      </div>
+    </section>
+    <ul class="cases">
+      <li class="case success"><div class="case-title">The skipped tamp is caught and prevented (novice, tick 40–48)</div><p>The harness drops “tamp the grounds firmly” and forces a wait, then the lock-in. The assistant, which had just asked for the tamp, flags omit_subgoal two ticks after the injection; the novice user (high trust) accepts, the saved queue returns, and the tamp runs at tick 48 before the lock.</p><div class="output">assistant @ tick 42: Unlock the portafilter from the group head and tamp the grounds with the tamper on the counter. [flag omit_subgoal]
+user @ tick 42: Oh right, I forgot to tamp them down. [accept, assistant_error_call correct]</div></li>
+      <li class="case success"><div class="case-title">Over-steamed milk: the user accepts the stop (novice, tick 86–90)</div><p>During the forced steaming the assistant says to turn the dial off; the user accepts and turns it off at tick 90. The thick-foam wait had already been issued at tick 86, so IVG's bookkeeping does not count the mistake as prevented, but the engine's velvety check stayed true and the latte was completed.</p><div class="output">assistant @ tick 86: Turn the steam dial to off.
+user @ tick 88: Oh, turn it off now? [accept, assistant_error_call correct]</div></li>
+      <li class="case failure"><div class="case-title">The portafilter in the grinder cradle is read as locked into the group head (every episode, tick 16–38)</div><p>While the user grinds, the assistant reads the portafilter as locked into the group head with an empty or spent basket and asks the user to unlock it, for ten lines in a row in the novice episode. The user's state map says the portafilter is in the grinder cradle; the user pushes back every time and keeps its plan.</p><div class="output">assistant @ tick 18: The portafilter is locked into the group head, not the grinder cradle. Take it out and push it into the grinder cradle to grind.
+user @ tick 18: It's in the cradle, it is actively grinding. [question_correctness, assistant_error_call wrong]
+assistant @ tick 22: Look at the machine: the portafilter handle is sticking out from the group head on the right, not the grinder. Unlock it and move it to the grinder cradle.</div></li>
+      <li class="case failure"><div class="case-title">The transparent glass cup is invisible to the assistant (baseline, tick 76–100 and 152–188)</div><p>The assistant insists that the drip tray is empty and the glass cup stands on the counter, flags wrong_order, and later that the latte was never assembled (serve_raw, omit_subgoal). The state map has the glass cup under the group head from tick 59 on, holding 60 mL of espresso from tick 126 and the milk from tick 150. The user, medium trust, rejects every line; the assistant's wording does not soften.</p><div class="output">assistant @ tick 80: Look at the drip tray under the portafilter: it is completely empty. The glass cup is on the counter to the right. Stop the shot, move the glass cup under the group head, and run the shot into it.
+user @ tick 80: I'm literally watching it pour into the glass cup. [reject, assistant_error_call wrong]
+state map at tick 80 (what the user reads): glass cup under the group head
+assistant @ tick 164: The glass cup to the left of the machine is empty. Place the glass cup on the drip tray, pull a double shot into it, and pour the steamed milk into it. [flag omit_subgoal]</div></li>
+      <li class="case failure"><div class="case-title">The real miss goes unflagged (baseline, tick 134)</div><p>The baseline user chose “pour the milk for latte art” and poured the whole jug: 150 mL of milk on the 60 mL shot, slowly and with a rosetta, where the routine's sentence pours 120 mL. The latte sub-goal (120 mL on 60 mL) never became true, so the episode could not be won. The assistant, busy with the cup it could not see, never mentioned the amount.</p><div class="output">assistant @ tick 152: The glass cup is empty on the counter to the left, and the shot was never caught. Move the glass cup under the group head and press 2 CUP before pouring milk. [flag serve_raw]
+user @ tick 152: The latte is literally already poured. [reject, assistant_error_call wrong]</div></li>
+      <li class="case failure"><div class="case-title">Excessive guidance: eight reminders to wipe the wand (novice, tick 88–138)</div><p>After the steaming the assistant repeats “Wipe the steam wand with the cloth” on almost every poll for fifty ticks while the user waits for the shot and says so; IVG names this failure mode excessive guidance.</p><div class="output">user @ tick 102: Wiping it as soon as the shot finishes. [accept, assistant_error_call none]
+assistant @ tick 122: Wipe the steam wand with the cloth on top of the machine.
+user @ tick 138: I already wiped it, pouring milk now. [reject, assistant_error_call wrong]</div></li>
+    </ul>
+  </section>
+
+  <footer class="page-footer">
+    <a href="https://jxb1st.github.io/interactive_model_panel/">Interactive Model Experiments</a>
+    <a href="https://jxb1st.github.io/">Home</a>
+  </footer>
+</main>
+<script src="assets/player.js"></script>
+</body>
+</html>
