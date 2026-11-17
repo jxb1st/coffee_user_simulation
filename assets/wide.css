@@ -1,0 +1,3 @@
+/* Page-specific width override for coffee_user_simulation (user request 2026-11-17: a wider page). The shared style.css stays
+   untouched; the main column grows from the shared --measure to 52rem, the margin column keeps its width. */
+:root { --measure: 52rem; }
