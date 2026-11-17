@@ -1,6 +1,6 @@
 /* Episode player, in the experiment site's design (style.css tokens: paper / ink / rule / field / accent; the page serif). */
-.ivgplayer{display:grid;grid-template-columns:minmax(0,3fr) minmax(16rem,2fr);gap:1.25rem;align-items:start;margin:0.5rem 0 1.75rem}
-.ivgplayer video{width:100%;display:block;background:#000}
+.eplayer{display:grid;grid-template-columns:minmax(0,3fr) minmax(16rem,2fr);gap:1.25rem;align-items:start;margin:0.5rem 0 1.75rem}
+.eplayer video{width:100%;display:block;background:#000}
 .pl-tickbar{position:relative;height:8px;margin:0.5rem 0 0.25rem;background:var(--field,#f3f2ee);border:1px solid var(--rule,#dad7d0);cursor:pointer}
 .pl-progress{position:absolute;left:0;top:0;bottom:0;width:0;background:var(--accent-soft,#ece7f4)}
 .pl-mark{position:absolute;top:-3px;bottom:-3px;width:3px;background:var(--fail,#9a3b2e)}.pl-mark.released{background:var(--accent,#4b2e83)}.pl-mark.subgoal{background:var(--ink-3,#8b867e);width:2px}
@@ -15,5 +15,5 @@
 .pl-actions li{padding:0.15rem 0.5rem;color:var(--ink-2,#5f5b55);cursor:pointer}.pl-actions li.done{color:var(--ink-3,#8b867e)}.pl-actions li.now{color:var(--ink,#1f1d1b);font-weight:600;background:var(--field,#f3f2ee)}
 .pl-actions li.takeover::before{content:"forced · ";color:var(--fail,#9a3b2e);font-style:italic}.pl-actions li.rejected{text-decoration:line-through}
 .pl-subgoals li{padding:0.15rem 0.5rem;color:var(--ink-3,#8b867e)}.pl-subgoals li.done{color:var(--ink,#1f1d1b)}.pl-subgoals li::before{content:"○ "}.pl-subgoals li.done::before{content:"● ";color:var(--accent,#4b2e83)}
-@media(max-width:62rem){.ivgplayer{grid-template-columns:1fr}.pl-panels{max-height:none}}
-@media (max-width: 62rem) { .ivgplayer .pl-panel { max-height: 40vh; overflow: auto; } }
+@media(max-width:62rem){.eplayer{grid-template-columns:1fr}.pl-panels{max-height:none}}
+@media (max-width: 62rem) { .eplayer .pl-panel { max-height: 40vh; overflow: auto; } }

@@ -49,5 +49,5 @@
     });
   }
   function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
-  document.querySelectorAll(".ivgplayer").forEach(init);
+  document.querySelectorAll(".eplayer").forEach(init);
 })();
