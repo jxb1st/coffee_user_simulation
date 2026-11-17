@@ -1,3 +1,5 @@
 /* Page-specific width override for coffee_user_simulation (user requests 2026-11-17: a wider page, twice). The shared style.css
    stays untouched; the main column grows from the shared 42rem to 58rem, the margin column keeps its width. */
 :root { --measure: 58rem; }
+/* Pipeline figures smaller (user request 2026-11-17): the inlined SVGs stay near their drawn size, centred in the main column. */
+details.figure .fig svg { max-width: 600px; margin: 0 auto; }
