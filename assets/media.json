@@ -1,14 +1,18 @@
 [
  {
-  "file": "demo-novice.mp4"
+  "file": "demo-novice.mp4",
+  "caption": "The novice episode, whole, with captions: the skipped tamp is caught at tick 40–48, the over-steamed milk at 78–90."
  },
  {
-  "file": "clip-novice-tamp.mp4"
+  "file": "clip-novice-tamp.mp4",
+  "caption": "Novice, ticks 36–56: the forced skip of the tamp; the assistant asks for it, the user accepts, the mistake is prevented."
  },
  {
-  "file": "clip-novice-steam.mp4"
+  "file": "clip-novice-steam.mp4",
+  "caption": "Novice, ticks 76–92: the milk is forced towards thick foam; the assistant says to turn the steam off and the user does."
  },
  {
-  "file": "clip-baseline-cup.mp4"
+  "file": "clip-baseline-cup.mp4",
+  "caption": "Baseline, ticks 76–100: the assistant insists the glass cup is not under the group head; it is, catching the shot."
  }
 ]
