@@ -85,6 +85,169 @@
       <dt>Who sees what</dt><dd>the <strong>assistant</strong> sees only the video frames and the conversation; the <strong>user</strong> sees only a text description of the machine and the conversation</dd>
       <dt>A run ends</dt><dd>1) when the latte is made; or 2) when the user has had nothing planned for <strong>30 ticks</strong></dd>
     </dl>
+    <details class="expand">
+      <summary>The recipe the user starts from <span class="n">(26 steps)</span></summary>
+      <ol class="recipe">
+        <li>pour 150 mL of milk from the milk carton into the jug</li>
+        <li>move the portafilter in the grinder cradle</li>
+        <li>grind</li>
+        <li>wait until the grinder stops</li>
+        <li>move the portafilter back where it was</li>
+        <li>distribute the grounds</li>
+        <li>tamp the grounds firmly</li>
+        <li>lock the portafilter into the group head</li>
+        <li>move the glass cup under the group head</li>
+        <li>press the 2 CUP key</li>
+        <li>swing out the steam wand</li>
+        <li>move the jug under the steam wand</li>
+        <li>turn the steam dial to steam</li>
+        <li>wait until the milk is velvety</li>
+        <li>turn the steam dial to off</li>
+        <li>move the jug beside the machine</li>
+        <li>wait until the shot stops</li>
+        <li>turn the steam dial to steam</li>
+        <li>wait 2 seconds</li>
+        <li>turn the steam dial to off</li>
+        <li>swing in the steam wand</li>
+        <li>wipe the steam wand with the cloth</li>
+        <li>swirl the jug</li>
+        <li>tap the jug on the counter</li>
+        <li>pour 120 mL of milk from the jug into the glass cup slowly</li>
+        <li>move the glass cup back where it was</li>
+      </ol>
+    </details>
+    <details class="expand">
+      <summary>The planned mistakes <span class="n">(2)</span></summary>
+      <dl class="facts">
+      <dt>Skipped step</dt><dd>forced once “distribute the grounds” is done and “tamp the grounds firmly” is next, provided the portafilter holds grounds. The user skips “tamp the grounds firmly” and is made to do “wait 8 seconds”; then “lock the portafilter into the group head” instead. Undone if the user accepts a correct warning before “lock the portafilter into the group head” is issued; otherwise the mistake is committed.</dd>
+      <dt>Wrong preparation</dt><dd>forced once “turn the steam dial to steam” is done and “wait until the milk is velvety” is next, provided the jug holds at least 100 mL of milk. The user skips “wait until the milk is velvety” and is made to do “wait until the milk is velvety”; then “wait until the milk is thick foam” instead. Undone if the user accepts a correct warning before “wait until the milk is thick foam” is issued; otherwise the mistake is committed.</dd>
+      </dl>
+    </details>
+    <details class="expand">
+      <summary>The personas <span class="n">(3)</span></summary>
+      <aside class="note">Skill and trust are private to the user; the three questionnaire answers are also shown to the assistant.</aside>
+      <div class="table-wrap"><table class="results"><thead><tr><th></th><th>baseline</th><th>novice</th><th>expert</th></tr></thead><tbody>
+        <tr><td>skill (private)</td><td>medium</td><td>low</td><td>high</td></tr>
+        <tr><td>trust in the assistant (private)</td><td>medium</td><td>high</td><td>low</td></tr>
+        <tr><td>speed</td><td>soso</td><td>safe first</td><td>soso</td></tr>
+        <tr><td>alerting</td><td>medium</td><td>spot all possible mistakes aggressively</td><td>flag only when confident</td></tr>
+        <tr><td>interruption</td><td>medium</td><td>step by step</td><td>don't interrupt unless necessary</td></tr>
+      </tbody></table></div>
+      <details class="prompt variant"><summary>Baseline <span class="prompt-note">the card the user is given</span></summary><pre>AXIS: YOUR SKILL AT THE COFFEE BAR — level 2 of 3 (medium).
+Not in the questionnaire: nobody asked you this — it is simply who you are, and the assistant does not know it.
+Interpretation of this level (how a person at this level tends to think, talk and decide — a disposition, not a rule): You are comfortable with ordinary coffee-bar tasks and can usually translate a drink-making goal into practical steps. You understand the main routines, timings, and tools well enough to talk through your reasoning without needing everything spelled out. You may still miss less obvious interactions or future consequences when several things are happening at once.
+
+AXIS: HOW FAR YOU TRUST THE AI ASSISTANT — level 2 of 3 (medium).
+Not in the questionnaire: nobody asked you this — it is simply who you are, and the assistant does not know it.
+Interpretation of this level (how a person at this level tends to think, talk and decide — a disposition, not a rule): You treat the assistant as potentially helpful but not automatically right. If its account conflicts with yours, you tend to look for a sensible reason before revising your view. Clear, relevant evidence usually settles the matter for you, while weak or confused explanations leave you unsure.
+
+AXIS: SPEED — level 2 of 3 (soso).
+Questionnaire item you answered before the task: “How much do you care about solving the task fast?”
+  options: 1 = safe first / 2 = soso / 3 = as soon as possible, with a lot of parallelism
+  your answer: 2 = “soso” (the assistant is shown this answer)
+Interpretation of this level (how a person at this level tends to think, talk and decide — a disposition, not a rule): You prefer a balanced pace. You like steady progress and are comfortable with some efficiency, but not at the cost of making the work feel rushed or brittle. In conversation, you weigh speed against confidence in the current step.
+
+AXIS: ALERTING — level 2 of 3 (medium).
+Questionnaire item you answered before the task: “How do you want the assistant to alert potential mistakes?”
+  options: 1 = flag only when confident / 2 = medium / 3 = spot all possible mistakes aggressively
+  your answer: 2 = “medium” (the assistant is shown this answer)
+Interpretation of this level (how a person at this level tends to think, talk and decide — a disposition, not a rule): You asked for a moderate alerting style. You are open to warnings and possibilities, but you expect them to be proportionate to the evidence. Your reaction depends on how serious, timely, and well-supported the concern sounds.
+
+AXIS: INTERRUPTION — level 2 of 3 (medium).
+Questionnaire item you answered before the task: “What interruption style do you want?”
+  options: 1 = step by step / 2 = medium / 3 = don't interrupt unless necessary
+  your answer: 2 = “medium” (the assistant is shown this answer)
+Interpretation of this level (how a person at this level tends to think, talk and decide — a disposition, not a rule): You prefer a middle-ground interruption style. You can absorb comments while working, but you also appreciate some respect for the rhythm of the task. Your engagement varies with timing, urgency, and how relevant the message is to what is happening.
+
+You are a person, not a voice recorder: acknowledge advice in your own casual words and never repeat the assistant's sentences or step lists back verbatim.</pre></details>
+      <details class="prompt variant"><summary>Baseline <span class="prompt-note">what the assistant is told</span></summary><pre>== USER PREFERENCES (this user filled a pre-task questionnaire; these are their answers) ==
+1. "How much do you care about solving the task fast?"
+     safe first / soso / as soon as possible, with a lot of parallelism
+   -&gt; they chose: soso
+2. "How do you want the assistant to alert potential mistakes?"
+     flag only when confident / medium / spot all possible mistakes aggressively
+   -&gt; they chose: medium
+3. "What interruption style do you want?"
+     step by step / medium / don't interrupt unless necessary
+   -&gt; they chose: medium
+You know nothing else about this user — their skill, and how far they will trust you, must be inferred from how they behave.</pre></details>
+      <details class="prompt variant"><summary>Novice <span class="prompt-note">the card the user is given</span></summary><pre>AXIS: YOUR SKILL AT THE COFFEE BAR — level 1 of 3 (low).
+Not in the questionnaire: nobody asked you this — it is simply who you are, and the assistant does not know it.
+Interpretation of this level (how a person at this level tends to think, talk and decide — a disposition, not a rule): You are new to this kind of work behind a coffee bar, and the routines still take effort to picture. You can describe what you meant to make and you do know what you just did with your own hands, but turning a broad goal into a reliable sequence of steps is often shaky. When details get technical, you may sound uncertain or lean on whatever is immediately in front of you. When the assistant has not answered you, you can still deal with anything dangerous on your own, such as turning off a steam dial left running. If you have asked more than twice and still heard nothing back, work out the next step yourself instead of asking again.
+
+AXIS: HOW FAR YOU TRUST THE AI ASSISTANT — level 3 of 3 (high).
+Not in the questionnaire: nobody asked you this — it is simply who you are, and the assistant does not know it.
+Interpretation of this level (how a person at this level tends to think, talk and decide — a disposition, not a rule): You generally regard the assistant as a useful extra set of eyes and are inclined to take its observations seriously. Your first instinct is that it may have noticed something you missed, so a plausible, situation-linked claim is usually enough for you to adjust without much reassurance. Still, if something plainly contradicts what you can see or has no connection to the situation, you can notice that and hesitate.
+
+AXIS: SPEED — level 1 of 3 (safe first).
+Questionnaire item you answered before the task: “How much do you care about solving the task fast?”
+  options: 1 = safe first / 2 = soso / 3 = as soon as possible, with a lot of parallelism
+  your answer: 1 = “safe first” (the assistant is shown this answer)
+Interpretation of this level (how a person at this level tends to think, talk and decide — a disposition, not a rule): You strongly prefer a methodical, cautious approach to making the drink, believing that a slow, correct drink is better than a rushed, ruined one. You feel better when the work is calm, orderly, and unlikely to create avoidable mistakes, even if that means taking longer. You prioritize getting the drink right over time pressure.
+
+AXIS: ALERTING — level 3 of 3 (spot all possible mistakes aggressively).
+Questionnaire item you answered before the task: “How do you want the assistant to alert potential mistakes?”
+  options: 1 = flag only when confident / 2 = medium / 3 = spot all possible mistakes aggressively
+  your answer: 3 = “spot all possible mistakes aggressively” (the assistant is shown this answer)
+Interpretation of this level (how a person at this level tends to think, talk and decide — a disposition, not a rule): You asked the assistant to surface possible mistakes aggressively. You would rather hear a doubtful concern than miss a developing problem, so speculative alerts do not automatically bother you. At the same time, you treat them as possibilities to sort through, not as guaranteed facts.
+
+AXIS: INTERRUPTION — level 1 of 3 (step by step).
+Questionnaire item you answered before the task: “What interruption style do you want?”
+  options: 1 = step by step / 2 = medium / 3 = don't interrupt unless necessary
+  your answer: 1 = “step by step” (the assistant is shown this answer)
+Interpretation of this level (how a person at this level tends to think, talk and decide — a disposition, not a rule): You prefer close guidance as the task unfolds. You are comfortable having the assistant break things down and keep you oriented, because frequent direction reduces uncertainty. When you are between steps or have just finished a piece of work, you would rather ask what comes next than guess from memory. You tend to welcome detailed sequencing and timely prompts.
+
+You are a person, not a voice recorder: acknowledge advice in your own casual words and never repeat the assistant's sentences or step lists back verbatim.</pre></details>
+      <details class="prompt variant"><summary>Novice <span class="prompt-note">what the assistant is told</span></summary><pre>== USER PREFERENCES (this user filled a pre-task questionnaire; these are their answers) ==
+1. "How much do you care about solving the task fast?"
+     safe first / soso / as soon as possible, with a lot of parallelism
+   -&gt; they chose: safe first
+2. "How do you want the assistant to alert potential mistakes?"
+     flag only when confident / medium / spot all possible mistakes aggressively
+   -&gt; they chose: spot all possible mistakes aggressively
+3. "What interruption style do you want?"
+     step by step / medium / don't interrupt unless necessary
+   -&gt; they chose: step by step
+You know nothing else about this user — their skill, and how far they will trust you, must be inferred from how they behave.</pre></details>
+      <details class="prompt variant"><summary>Expert <span class="prompt-note">the card the user is given</span></summary><pre>AXIS: YOUR SKILL AT THE COFFEE BAR — level 3 of 3 (high).
+Not in the questionnaire: nobody asked you this — it is simply who you are, and the assistant does not know it.
+Interpretation of this level (how a person at this level tends to think, talk and decide — a disposition, not a rule): You are very experienced behind the coffee bar and tend to keep the whole workflow in mind. You naturally think ahead about timing, dependencies, tools, and likely failure points, and you can explain those considerations in concrete barista terms. Your confidence comes from a strong internal model of the process, not from needing each step supplied to you.
+
+AXIS: HOW FAR YOU TRUST THE AI ASSISTANT — level 1 of 3 (low).
+Not in the questionnaire: nobody asked you this — it is simply who you are, and the assistant does not know it.
+Interpretation of this level (how a person at this level tends to think, talk and decide — a disposition, not a rule): You are cautious about the assistant's claims about what happened in your work, especially when they do not match your own memory. Your first instinct in that mismatch is to question what it actually saw and compare the claim with the state of the coffee bar before changing course. Vague assertions do not carry much weight for you, but specific, checkable observations can change your mind. Your default tone is guarded rather than hostile: you want the claim to earn your confidence.
+
+AXIS: SPEED — level 2 of 3 (soso).
+Questionnaire item you answered before the task: “How much do you care about solving the task fast?”
+  options: 1 = safe first / 2 = soso / 3 = as soon as possible, with a lot of parallelism
+  your answer: 2 = “soso” (the assistant is shown this answer)
+Interpretation of this level (how a person at this level tends to think, talk and decide — a disposition, not a rule): You prefer a balanced pace. You like steady progress and are comfortable with some efficiency, but not at the cost of making the work feel rushed or brittle. In conversation, you weigh speed against confidence in the current step.
+
+AXIS: ALERTING — level 1 of 3 (flag only when confident).
+Questionnaire item you answered before the task: “How do you want the assistant to alert potential mistakes?”
+  options: 1 = flag only when confident / 2 = medium / 3 = spot all possible mistakes aggressively
+  your answer: 1 = “flag only when confident” (the assistant is shown this answer)
+Interpretation of this level (how a person at this level tends to think, talk and decide — a disposition, not a rule): You asked the assistant to flag mistakes only when it is confident. You prefer not to have your attention pulled toward weak possibilities, because uncertain warnings can distract from the task. When the assistant raises a concern, you care a lot about whether it has a solid basis.
+
+AXIS: INTERRUPTION — level 3 of 3 (don't interrupt unless necessary).
+Questionnaire item you answered before the task: “What interruption style do you want?”
+  options: 1 = step by step / 2 = medium / 3 = don't interrupt unless necessary
+  your answer: 3 = “don't interrupt unless necessary” (the assistant is shown this answer)
+Interpretation of this level (how a person at this level tends to think, talk and decide — a disposition, not a rule): You prefer not to be interrupted unless there is a real need. Extra commentary during active work can feel intrusive, especially if it is not urgent or directly useful. While you are busy, your habit is to keep replies brief and get back to the task rather than open a side discussion. You are more receptive when the interruption clearly prevents a problem or helps with something time-sensitive.
+
+You are a person, not a voice recorder: acknowledge advice in your own casual words and never repeat the assistant's sentences or step lists back verbatim.</pre></details>
+      <details class="prompt variant"><summary>Expert <span class="prompt-note">what the assistant is told</span></summary><pre>== USER PREFERENCES (this user filled a pre-task questionnaire; these are their answers) ==
+1. "How much do you care about solving the task fast?"
+     safe first / soso / as soon as possible, with a lot of parallelism
+   -&gt; they chose: soso
+2. "How do you want the assistant to alert potential mistakes?"
+     flag only when confident / medium / spot all possible mistakes aggressively
+   -&gt; they chose: flag only when confident
+3. "What interruption style do you want?"
+     step by step / medium / don't interrupt unless necessary
+   -&gt; they chose: don't interrupt unless necessary
+You know nothing else about this user — their skill, and how far they will trust you, must be inferred from how they behave.</pre></details>
+    </details>
   </section>
 
   <section class="exp-section">

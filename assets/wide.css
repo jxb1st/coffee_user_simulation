@@ -3,3 +3,7 @@
 :root { --measure: 58rem; }
 /* Pipeline figures smaller (user request 2026-11-17): the inlined SVGs stay near their drawn size, centred in the main column. */
 details.figure .fig svg { max-width: 600px; margin: 0 auto; }
+/* The recipe list under Settings. */
+ol.recipe { margin: 0.5rem 0 0.5rem 1.4rem; padding: 0; columns: 2; column-gap: 2.5rem; font-size: 0.95rem; line-height: 1.5; }
+ol.recipe li { break-inside: avoid; padding-left: 0.2rem; }
+@media (max-width: 40rem) { ol.recipe { columns: 1; } }
