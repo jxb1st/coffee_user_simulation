@@ -14,8 +14,8 @@
     phases.forEach(function (p, i) {
       var el = document.createElement("div"); el.className = "sim-step"; el.style.left = (100 * (i + 0.5) / phases.length) + "%";
       el.innerHTML = '<span class="n">' + (i + 1) + '</span><span class="l">' + esc(p.name) + "</span>";
-      el.title = p.start_s == null ? "not reached" : "tick " + Math.floor(p.start_s / tickS);
-      el.addEventListener("click", function () { if (p.start_s != null) seek(p.start_s); }); strip.appendChild(el); p.el = el;
+      el.title = p.done_s == null ? "not reached" : "reached at tick " + Math.floor(p.done_s / tickS);
+      el.addEventListener("click", function () { seek(p.start_s || 0); }); strip.appendChild(el); p.el = el;
     });
     var marks = [];
     (d.injections || []).forEach(function (i) { marks.push({ t: i.injected_s, cls: "mistake", title: "planned mistake: " + i.words }); });
@@ -51,8 +51,8 @@
       tickEl.textContent = "Tick " + Math.min(n, Math.floor(t / tickS)) + " / " + n;
       range.value = t; timeEl.textContent = mmss(t) + " / " + mmss(dur);
       var cur = -1;
-      phases.forEach(function (p, i) { if (p.start_s != null && t >= p.start_s) cur = i; });
-      phases.forEach(function (p, i) { p.el.classList.toggle("done", i < cur || (i === cur && p.end_s != null && t >= p.end_s)); p.el.classList.toggle("now", i === cur); });
+      phases.forEach(function (p, i) { var done = p.done_s != null && t >= p.done_s; p.el.classList.toggle("done", done); if (!done && cur < 0) cur = i; });
+      phases.forEach(function (p, i) { p.el.classList.toggle("now", i === cur); });
       marks.forEach(function (m) { m.el.classList.toggle("past", t >= m.t); });
       var seen = null;
       tr.querySelectorAll("li").forEach(function (li) { var on = t >= +li.dataset.t && t < +li.dataset.end; li.classList.toggle("now", on); if (on) seen = li; });
