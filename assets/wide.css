@@ -10,3 +10,18 @@ details.figure .fig svg { max-width: 600px; margin: 0 auto; }
 .recipe h4 .goal { font-weight: 400; color: var(--accent, #4b2e83); margin-left: 0.4rem; }
 .recipe ol { margin: 0 0 0 1.5rem; padding: 0; color: var(--ink-2, #5f5b55); }
 @media (max-width: 40rem) { .recipe { columns: 1; } }
+/* The action space (user request 2026-11-18): one entry per action, the clip on the left, the sentence forms and the meaning on the right. */
+.actions { list-style: none; margin: 0.8rem 0 1rem; padding: 0; }
+.actions .action { display: grid; grid-template-columns: 19rem minmax(0, 1fr); column-gap: 1.5rem; padding: 0.9rem 0; border-top: 1px solid var(--rule, #dad7d0); }
+.actions .action:last-child { border-bottom: 1px solid var(--rule, #dad7d0); }
+.actions figure.fig { margin: 0; }
+.actions figure.fig video { width: 100%; aspect-ratio: 16 / 9; background: #000; display: block; }
+.actions figure.fig figcaption { font-size: 0.85rem; margin-top: 0.4rem; }
+.actions h4 { margin: 0 0 0.3rem; font-size: 1.05rem; font-weight: 600; }
+.actions .forms { list-style: none; margin: 0 0 0.45rem; padding: 0; font-size: 0.95rem; line-height: 1.45; }
+.actions .forms li::before { content: "\201C"; }
+.actions .forms li::after { content: "\201D"; }
+.actions .slot { margin: 0 0 0.2rem; font-size: 0.875rem; color: var(--ink-2, #5f5b55); line-height: 1.45; }
+.actions .slot b { color: var(--ink, #1f1d1b); font-weight: 600; }
+.actions .means { margin: 0.45rem 0 0; font-size: 0.9rem; line-height: 1.45; }
+@media (max-width: 48rem) { .actions .action { grid-template-columns: 1fr; row-gap: 0.6rem; } .actions .action .action-text { order: -1; } }
