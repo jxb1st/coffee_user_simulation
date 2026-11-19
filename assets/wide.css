@@ -2,7 +2,7 @@
    stays untouched; the main column grows from the shared 42rem to 58rem, the margin column keeps its width. */
 :root { --measure: 58rem; }
 /* Pipeline figures smaller (user request 2026-11-17): the inlined SVGs stay near their drawn size, centred in the main column. */
-details.figure .fig svg { max-width: 600px; margin: 0 auto; }
+details.figure .fig svg { max-width: 700px; margin: 0 auto; }   /* 600 → 700 on 2026-11-18 (user: a little bigger) */
 /* The recipe list under Settings. */
 .recipe { columns: 2; column-gap: 2.5rem; font-size: 0.95rem; line-height: 1.5; margin: 0.5rem 0; }
 .recipe section { break-inside: avoid; margin: 0 0 0.8rem; }
