@@ -1,6 +1,9 @@
 /* Page-specific width override for coffee_user_simulation (user requests 2026-11-17: a wider page, twice). The shared style.css
    stays untouched; the main column grows from the shared 42rem to 58rem, the margin column keeps its width. */
-:root { --measure: 58rem; }
+:root { --measure: 62rem; }                                       /* 58 → 62rem on 2026-11-19 (user: wider again) */
+/* Larger type everywhere (user request 2026-11-19): the root size goes from the browser's 16 px to 18 px, so every rem-based size
+   in the shared stylesheet, the player and this file scales by 12.5 % (body text 17 → 19 px) and the columns widen with it. */
+html { font-size: 112.5%; }
 /* Pipeline figures smaller (user request 2026-11-17): the inlined SVGs stay near their drawn size, centred in the main column. */
 details.figure .fig svg { max-width: 700px; margin: 0 auto; }   /* 600 → 700 on 2026-11-18 (user: a little bigger) */
 /* The recipe list under Settings. */
@@ -28,12 +31,12 @@ details.figure .fig svg { max-width: 700px; margin: 0 auto; }   /* 600 → 700 o
 /* The annotated transcript under the simulator (user request 2026-11-19): tick · who · line · our note, grouped into scenes. */
 .takeaways { margin: 0.4rem 0 1.2rem 1.2rem; padding: 0; line-height: 1.5; }
 .takeaways li { margin: 0 0 0.45rem; }
-.transcript { margin: 0.6rem 0 1.5rem; font-size: 0.92rem; line-height: 1.45; }
+.transcript { margin: 0.6rem 0 1.5rem; font-size: 0.95rem; line-height: 1.45; }
 .transcript .scene { margin: 1.3rem 0 0; }
 .transcript .scene > h4 { margin: 0 0 0.3rem; font-size: 1rem; font-weight: 600; }
 .transcript .scene > h4 .n { font-weight: 400; color: var(--ink-2, #5f5b55); margin-left: 0.4rem; }
 .transcript .scene > .gist { margin: 0 0 0.6rem; color: var(--ink-2, #5f5b55); }
-.transcript .row { display: grid; grid-template-columns: 2.6rem 5.4rem minmax(0, 1fr) 17rem; column-gap: 0.9rem; padding: 0.28rem 0.3rem; border-top: 1px solid var(--rule, #dad7d0); }
+.transcript .row { display: grid; grid-template-columns: 2.6rem 5.4rem minmax(0, 1fr) 18rem; column-gap: 0.9rem; padding: 0.28rem 0.3rem; border-top: 1px solid var(--rule, #dad7d0); }
 .transcript .row.head { border-top: 0; color: var(--ink-3, #8b867e); font-size: 0.82rem; }
 .transcript .scene .row:last-child { border-bottom: 1px solid var(--rule, #dad7d0); }
 .transcript .row.now { background: var(--accent-soft, #ece7f4); }
@@ -51,7 +54,7 @@ details.figure .fig svg { max-width: 700px; margin: 0 auto; }   /* 600 → 700 o
 .transcript .row .tag { display: inline-block; margin-left: 0.35rem; font-size: 0.76rem; font-style: normal; color: var(--ink-2, #5f5b55); border: 1px solid var(--rule, #dad7d0); border-radius: 3px; padding: 0 0.3rem; vertical-align: 1px; white-space: nowrap; }
 .transcript .row .tag.flag { border-color: var(--accent, #4b2e83); color: var(--accent, #4b2e83); }
 .transcript .row .tag.wrong { border-color: var(--fail, #9a3b2e); color: var(--fail, #9a3b2e); }
-.transcript .row .remark { font-size: 0.85rem; color: var(--ink-2, #5f5b55); font-style: normal; }
+.transcript .row .remark { font-size: 0.875rem; color: var(--ink-2, #5f5b55); font-style: normal; }
 .transcript .row .remark strong { color: var(--ink, #1f1d1b); }
 @media (max-width: 52rem) {
   .transcript .row { grid-template-columns: 2.4rem 4.8rem minmax(0, 1fr); row-gap: 0.15rem; }
