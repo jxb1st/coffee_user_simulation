@@ -1,6 +1,7 @@
 // The simulator demo widget: a caption-free two-view video driven by inline JSON (script.pl-data): a live caption band (the latest
 // assistant and user lines), a task-progress strip (phases, with the assistant's warnings and the planned mistakes marked along the
-// time axis), a tick counter, simple controls and a collapsed transcript. Clicking a step, a mark or a transcript line seeks. No framework.
+// time axis), a tick counter and simple controls. Clicking a step, a mark, or a tick in the annotated transcript below the widget seeks;
+// the transcript row under the playhead is shaded. No framework.
 (function () {
   function init(root) {
     var video = root.querySelector("video"), d = JSON.parse(root.querySelector("script.pl-data").textContent);
@@ -31,12 +32,21 @@
       if (i.released_s != null) rows.push({ t: i.released_s, end: i.released_s + 2.4, cls: "event", html: "released: " + esc(i.reason) + (i.prevented ? " — prevented" : "") });
     });
     rows.sort(function (a, b) { return a.t - b.t; });
-    rows.forEach(function (r) {
+    if (tr) rows.forEach(function (r) {
       var li = document.createElement("li"); li.className = r.cls; li.innerHTML = r.html; li.dataset.t = r.t; li.dataset.end = r.end;
       li.addEventListener("click", function () { seek(r.t); }); tr.appendChild(li);
     });
     var lines = (d.events || []).slice().sort(function (a, b) { return a.start - b.start; });
     function seek(t) { video.currentTime = Math.max(0, Math.min(dur, t)); if (video.paused) video.play(); }
+    var noted = document.querySelectorAll(".transcript .row[data-tick]"), notedTicks = [];
+    noted.forEach(function (el) { var k = +el.dataset.tick; if (notedTicks.indexOf(k) < 0) notedTicks.push(k); }); notedTicks.sort(function (a, b) { return a - b; });
+    document.querySelectorAll("a[data-seek-tick]").forEach(function (a) {
+      a.addEventListener("click", function (ev) {
+        ev.preventDefault(); var r = root.getBoundingClientRect();
+        if (r.top < 0 || r.bottom > window.innerHeight) root.scrollIntoView({ behavior: "smooth", block: "start" });
+        seek(parseInt(a.dataset.seekTick, 10) * tickS);
+      });
+    });
     function toggle() { if (video.paused) video.play(); else video.pause(); }
     root.querySelector(".sim-stage").addEventListener("click", toggle); playBtn.addEventListener("click", toggle);
     root.querySelector(".sim-full").addEventListener("click", function () { var el = root.querySelector(".sim-stage"); if (el.requestFullscreen) el.requestFullscreen(); });
@@ -54,9 +64,14 @@
       phases.forEach(function (p, i) { var done = p.done_s != null && t >= p.done_s; p.el.classList.toggle("done", done); if (!done && cur < 0) cur = i; });
       phases.forEach(function (p, i) { p.el.classList.toggle("now", i === cur); });
       marks.forEach(function (m) { m.el.classList.toggle("past", t >= m.t); });
-      var seen = null;
-      tr.querySelectorAll("li").forEach(function (li) { var on = t >= +li.dataset.t && t < +li.dataset.end; li.classList.toggle("now", on); if (on) seen = li; });
-      if (seen && seen.scrollIntoView && root.querySelector("details").open) seen.scrollIntoView({ block: "nearest" });
+      var tk = Math.floor(t / tickS), last = -1;                      // shade the latest transcript tick the playhead has passed
+      notedTicks.forEach(function (k) { if (k <= tk) last = k; });
+      noted.forEach(function (el) { el.classList.toggle("now", +el.dataset.tick === last); });
+      if (tr) {
+        var seen = null;
+        tr.querySelectorAll("li").forEach(function (li) { var on = t >= +li.dataset.t && t < +li.dataset.end; li.classList.toggle("now", on); if (on) seen = li; });
+        if (seen && seen.scrollIntoView && root.querySelector("details").open) seen.scrollIntoView({ block: "nearest" });
+      }
     }
     video.addEventListener("timeupdate", update); video.addEventListener("seeked", update); video.addEventListener("loadedmetadata", update); update();
     root.dataset.ready = "1";

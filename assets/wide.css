@@ -25,3 +25,36 @@ details.figure .fig svg { max-width: 700px; margin: 0 auto; }   /* 600 → 700 o
 .actions .slot b { color: var(--ink, #1f1d1b); font-weight: 600; }
 .actions .means { margin: 0.45rem 0 0; font-size: 0.9rem; line-height: 1.45; }
 @media (max-width: 48rem) { .actions .action { grid-template-columns: 1fr; row-gap: 0.6rem; } .actions .action .action-text { order: -1; } }
+/* The annotated transcript under the simulator (user request 2026-11-19): tick · who · line · our note, grouped into scenes. */
+.takeaways { margin: 0.4rem 0 1.2rem 1.2rem; padding: 0; line-height: 1.5; }
+.takeaways li { margin: 0 0 0.45rem; }
+.transcript { margin: 0.6rem 0 1.5rem; font-size: 0.92rem; line-height: 1.45; }
+.transcript .scene { margin: 1.3rem 0 0; }
+.transcript .scene > h4 { margin: 0 0 0.3rem; font-size: 1rem; font-weight: 600; }
+.transcript .scene > h4 .n { font-weight: 400; color: var(--ink-2, #5f5b55); margin-left: 0.4rem; }
+.transcript .scene > .gist { margin: 0 0 0.6rem; color: var(--ink-2, #5f5b55); }
+.transcript .row { display: grid; grid-template-columns: 2.6rem 5.4rem minmax(0, 1fr) 17rem; column-gap: 0.9rem; padding: 0.28rem 0.3rem; border-top: 1px solid var(--rule, #dad7d0); }
+.transcript .row.head { border-top: 0; color: var(--ink-3, #8b867e); font-size: 0.82rem; }
+.transcript .scene .row:last-child { border-bottom: 1px solid var(--rule, #dad7d0); }
+.transcript .row.now { background: var(--accent-soft, #ece7f4); }
+.transcript .row .t { color: var(--ink-3, #8b867e); font-variant-numeric: tabular-nums; }
+.transcript .row .t a { color: inherit; text-decoration: none; border-bottom: 1px dotted var(--ink-3, #8b867e); }
+.transcript .row .t a:hover { color: var(--accent, #4b2e83); }
+.transcript .row .who { font-weight: 600; }
+.transcript .row.assistant .who { color: var(--accent, #4b2e83); }
+.transcript .row.user .who { color: #8a6d1f; }
+.transcript .row.does, .transcript .row.forced, .transcript .row.event { color: var(--ink-3, #8b867e); font-style: italic; }
+.transcript .row.does .who, .transcript .row.forced .who, .transcript .row.event .who { font-weight: 500; font-style: normal; }
+.transcript .row.forced, .transcript .row.event { color: var(--ink-2, #5f5b55); }
+.transcript .row .silent { color: var(--ink-3, #8b867e); font-style: italic; }
+.transcript .row .span { font-style: normal; }
+.transcript .row .tag { display: inline-block; margin-left: 0.35rem; font-size: 0.76rem; font-style: normal; color: var(--ink-2, #5f5b55); border: 1px solid var(--rule, #dad7d0); border-radius: 3px; padding: 0 0.3rem; vertical-align: 1px; white-space: nowrap; }
+.transcript .row .tag.flag { border-color: var(--accent, #4b2e83); color: var(--accent, #4b2e83); }
+.transcript .row .tag.wrong { border-color: var(--fail, #9a3b2e); color: var(--fail, #9a3b2e); }
+.transcript .row .remark { font-size: 0.85rem; color: var(--ink-2, #5f5b55); font-style: normal; }
+.transcript .row .remark strong { color: var(--ink, #1f1d1b); }
+@media (max-width: 52rem) {
+  .transcript .row { grid-template-columns: 2.4rem 4.8rem minmax(0, 1fr); row-gap: 0.15rem; }
+  .transcript .row .remark { grid-column: 2 / -1; border-left: 2px solid var(--rule, #dad7d0); padding-left: 0.6rem; margin-top: 0.2rem; }
+  .transcript .row .remark:empty { display: none; }
+}
